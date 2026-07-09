@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suqya-api
+  labels:
+    app: suqya-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: suqya-api
+  template:
+    metadata:
+      labels:
+        app: suqya-api
+    spec:
+      containers:
+        - name: api
+          image: suqya/api:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: suqya-secrets
+                  key: database-url
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: suqya-secrets
+                  key: redis-host
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: suqya-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /v1/tenants/public
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/tenants/public
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: suqya-api
+spec:
+  selector:
+    app: suqya-api
+  ports:
+    - port: 80
+      targetPort: 4000
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: suqya-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: suqya-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

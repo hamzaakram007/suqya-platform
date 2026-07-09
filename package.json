@@ -1,0 +1,24 @@
+{
+  "name": "suqya-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Water Tanker Ordering Platform — Saudi Arabia",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @suqya/api",
+    "dev:admin": "npm run dev -w @suqya/admin-web",
+    "dev:supplier": "npm run dev -w @suqya/supplier-web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @suqya/api",
+    "db:generate": "npm run db:generate -w @suqya/api",
+    "db:seed": "npm run db:seed -w @suqya/api"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

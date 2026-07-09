@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+.next/
+out/
+build/
+coverage/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# IDE
+.vercel/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+.dart_tool/
+.packages
+pubspec.lock
+**/build/
+
+# Prisma
+apps/api/.env
+
+# Logs
+*.log
+npm-debug.log*

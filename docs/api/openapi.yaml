@@ -1,0 +1,352 @@
+# Suqya API — OpenAPI 3.1 Specification
+
+openapi: 3.1.0
+info:
+  title: Suqya Water Tanker API
+  description: Production API for the Water Tanker Ordering Platform — Saudi Arabia
+  version: 1.0.0
+  contact:
+    name: Suqya Platform
+
+servers:
+  - url: http://localhost:4000/v1
+    description: Development
+  - url: https://api.suqya.sa/v1
+    description: Production
+
+security:
+  - bearerAuth: []
+  - tenantId: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    tenantId:
+      type: apiKey
+      in: header
+      name: X-Tenant-Id
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message: { type: string }
+
+    SendOtpRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string, example: '+966501234567' }
+
+    VerifyOtpRequest:
+      type: object
+      required: [phone, code, role]
+      properties:
+        phone: { type: string }
+        code: { type: string, minLength: 6, maxLength: 6 }
+        role: { type: string, enum: [customer, driver, supplier, admin] }
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            phone: { type: string }
+            role: { type: string }
+
+    CreateOrderRequest:
+      type: object
+      required: [addressId, tankSizeId, paymentType]
+      properties:
+        addressId: { type: string, format: uuid }
+        tankSizeId: { type: string, format: uuid }
+        paymentType: { type: string, enum: [cash, card, credit, wallet, split] }
+        slaType: { type: string, enum: [standard, emergency, scheduled] }
+        scheduledAt: { type: string, format: date-time }
+        notes: { type: string }
+        supplierId: { type: string, format: uuid }
+
+    Order:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: string }
+        status: { type: string }
+        paymentType: { type: string }
+        subtotal: { type: number }
+        vatAmount: { type: number }
+        totalAmount: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    PaymentIntentRequest:
+      type: object
+      required: [orderId, method]
+      properties:
+        orderId: { type: string, format: uuid }
+        method: { type: string, enum: [cash, card, mada, apple_pay, stc_pay] }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        type: { type: string }
+        subtotal: { type: number }
+        vatAmount: { type: number }
+        total: { type: number }
+        zatcaStatus: { type: string }
+
+paths:
+  /auth/otp/send:
+    post:
+      tags: [Auth]
+      security: [{ tenantId: [] }]
+      summary: Send OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendOtpRequest' }
+      responses:
+        '200': { description: OTP sent }
+
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      security: [{ tenantId: [] }]
+      summary: Verify OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyOtpRequest' }
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: New tokens }
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create order
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+    get:
+      tags: [Orders]
+      summary: List customer orders
+      responses:
+        '200': { description: Order list }
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+
+  /orders/{id}/track:
+    get:
+      tags: [Orders]
+      summary: Live tracking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Tracking data }
+
+  /orders/{id}/cancel:
+    patch:
+      tags: [Orders]
+      summary: Cancel order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Cancelled }
+
+  /dispatch/nearby-drivers:
+    get:
+      tags: [Dispatch]
+      summary: Find nearby drivers
+      parameters:
+        - { name: lat, in: query, schema: { type: number } }
+        - { name: lng, in: query, schema: { type: number } }
+        - { name: capacity, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Driver candidates }
+
+  /dispatch/assign/{orderId}:
+    post:
+      tags: [Dispatch]
+      summary: Assign driver
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Assignment result }
+
+  /drivers/status:
+    patch:
+      tags: [Drivers]
+      summary: Toggle online/offline
+      responses:
+        '200': { description: Updated }
+
+  /drivers/jobs/{id}/accept:
+    post:
+      tags: [Drivers]
+      summary: Accept job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Accepted }
+
+  /drivers/jobs/{id}/pod:
+    post:
+      tags: [Drivers]
+      summary: Proof of delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: POD submitted }
+
+  /payments/intent:
+    post:
+      tags: [Payments]
+      summary: Create payment intent
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentIntentRequest' }
+      responses:
+        '200': { description: Payment intent }
+
+  /payments/capture:
+    post:
+      tags: [Payments]
+      summary: Capture payment
+      responses:
+        '200': { description: Captured }
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invoice' }
+
+  /credit/statement:
+    get:
+      tags: [Credit]
+      summary: Credit statement
+      responses:
+        '200': { description: Statement }
+
+  /credit/aging:
+    get:
+      tags: [Credit]
+      summary: Aging report
+      responses:
+        '200': { description: Aging data }
+
+  /accounting/ledger:
+    get:
+      tags: [Accounting]
+      summary: General ledger
+      responses:
+        '200': { description: Ledger entries }
+
+  /accounting/reports/pl:
+    get:
+      tags: [Accounting]
+      summary: Profit & Loss
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: P&L report }
+
+  /admin/analytics:
+    get:
+      tags: [Admin]
+      summary: Platform analytics
+      responses:
+        '200': { description: KPIs }
+
+  /suppliers/dashboard:
+    get:
+      tags: [Suppliers]
+      summary: Supplier dashboard
+      responses:
+        '200': { description: Dashboard KPIs }
+
+  /catalog/tank-sizes:
+    get:
+      tags: [Catalog]
+      security: [{ tenantId: [] }]
+      summary: Tank sizes
+      responses:
+        '200': { description: Tank size list }
+
+  /tenants/public:
+    get:
+      tags: [Tenants]
+      summary: Public tenants
+      responses:
+        '200': { description: Tenant list }
