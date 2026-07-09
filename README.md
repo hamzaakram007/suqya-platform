@@ -32,7 +32,28 @@ infra/
 docs/               Business, API, database, UX docs
 ```
 
-## Quick Start
+## Live Deployments
+
+| App | URL |
+|-----|-----|
+| Admin Dashboard | https://admin-web-psi-sepia.vercel.app |
+| Supplier Portal | https://supplier-web-one.vercel.app |
+| GitHub Repo | https://github.com/hamzaakram007/suqya-platform |
+
+### Redeploy to Vercel
+
+```bash
+# Admin dashboard
+npx vercel link --project admin-web --yes
+npx vercel deploy --prod --yes --local-config vercel.admin.json
+
+# Supplier portal
+npx vercel link --project supplier-web --yes
+npx vercel deploy --prod --yes --local-config vercel.supplier.json
+```
+
+> **Note:** The NestJS API requires a persistent server (Docker/Kubernetes/Railway). It is not deployed to Vercel. Connect the web apps to your API via `NEXT_PUBLIC_API_URL` in Vercel environment variables.
+
 
 ```bash
 # Install dependencies

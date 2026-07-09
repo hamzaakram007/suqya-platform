@@ -18,3 +18,5 @@ coverage/
 .flutter-plugins-dependencies
 .packages
 pubspec.lock
+.vercel
+.env*
