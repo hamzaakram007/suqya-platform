@@ -6,6 +6,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../common/guards/jwt-auth.guard';
+import { Locale } from '../../common/decorators/locale.decorator';
+import { AppLocale } from '../../common/locale/locale.types';
 import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -67,5 +69,98 @@ export class CustomerController {
     return this.prisma.address.create({
       data: { userId: user.sub, ...dto },
     });
+  }
+
+  @Get('me/order-defaults')
+  @ApiOperation({ summary: 'Get remembered 3-tap order defaults' })
+  async orderDefaults(@CurrentUser() user: JwtPayload) {
+    const [address, lastOrder, profile] = await Promise.all([
+      this.prisma.address.findFirst({
+        where: { userId: user.sub, isDefault: true },
+      }),
+      this.prisma.order.findFirst({
+        where: { customerId: user.sub, status: { not: 'cancelled' } },
+        orderBy: { createdAt: 'desc' },
+        include: { tankSize: true },
+      }),
+      this.prisma.userProfile.findUnique({ where: { userId: user.sub } }),
+    ]);
+
+    return {
+      addressId: address?.id ?? lastOrder?.addressId ?? null,
+      address,
+      tankSizeId: lastOrder?.tankSizeId ?? null,
+      tankSize: lastOrder?.tankSize ?? null,
+      paymentType: lastOrder?.paymentType ?? 'cash',
+      supplierId: lastOrder?.supplierId ?? null,
+      preferredLanguage: profile?.preferredLanguage ?? 'ar',
+      notes: lastOrder?.notes ?? null,
+    };
+  }
+
+  @Get('me/smart-reorder')
+  @ApiOperation({
+    summary: 'Smart reorder suggestion from defaults + last order (locale-aware copy)',
+  })
+  async smartReorder(
+    @CurrentUser() user: JwtPayload,
+    @Locale() locale: AppLocale,
+  ) {
+    const defaults = await this.orderDefaults(user);
+    const ready =
+      !!defaults.addressId && !!defaults.tankSizeId && !!defaults.paymentType;
+
+    const tankName =
+      locale === 'en'
+        ? defaults.tankSize?.nameEn ?? defaults.tankSize?.nameAr
+        : defaults.tankSize?.nameAr ?? defaults.tankSize?.nameEn;
+
+    return {
+      ready,
+      suggestion: ready
+        ? {
+            addressId: defaults.addressId,
+            tankSizeId: defaults.tankSizeId,
+            paymentType: defaults.paymentType,
+            supplierId: defaults.supplierId,
+            tankName,
+          }
+        : null,
+      message: ready
+        ? locale === 'en'
+          ? `Reorder ${tankName ?? 'your usual'} to your saved address?`
+          : `إعادة طلب ${tankName ?? 'طلبك المعتاد'} إلى عنوانك المحفوظ؟`
+        : locale === 'en'
+          ? 'Complete one order to unlock 3-tap reorder'
+          : 'أكمل طلباً واحداً لتفعيل إعادة الطلب بثلاث نقرات',
+      estimatedTaps: ready ? 1 : 3,
+    };
+  }
+
+  @Post('me/order-defaults')
+  @ApiOperation({ summary: 'Persist order defaults after successful order' })
+  async saveOrderDefaults(
+    @CurrentUser() user: JwtPayload,
+    @Body()
+    body: {
+      addressId?: string;
+      tankSizeId?: string;
+      paymentType?: string;
+      supplierId?: string;
+      notes?: string;
+    },
+  ) {
+    // Defaults are derived from last order; optionally mark address default
+    if (body.addressId) {
+      await this.prisma.address.updateMany({
+        where: { userId: user.sub },
+        data: { isDefault: false },
+      });
+      await this.prisma.address.updateMany({
+        where: { id: body.addressId, userId: user.sub },
+        data: { isDefault: true },
+      });
+    }
+    return this.orderDefaults(user);
   }
 }

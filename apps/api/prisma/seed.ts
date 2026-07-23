@@ -30,10 +30,11 @@ async function main() {
       id: 'default-tenant',
       name: 'Suqya Marketplace',
       nameAr: 'سقيا - السوق',
+      nameEn: 'Suqya Marketplace',
       mode: 'marketplace',
       status: 'active',
     },
-    update: {},
+    update: { nameEn: 'Suqya Marketplace', nameAr: 'سقيا - السوق' },
   });
 
   const tankSizes = [
@@ -89,9 +90,163 @@ async function main() {
     });
   }
 
+  // Dev users — OTP login with phone + code 123456 (NODE_ENV=development)
+  const devUsers = [
+    { phone: '+966501234567', role: 'admin' as const, nameAr: 'مدير النظام', nameEn: 'Admin User' },
+    { phone: '+966502345678', role: 'supplier' as const, nameAr: 'مورد تجريبي', nameEn: 'Demo Supplier' },
+    { phone: '+966503456789', role: 'driver' as const, nameAr: 'سائق تجريبي', nameEn: 'Demo Driver' },
+    { phone: '+966504567890', role: 'customer' as const, nameAr: 'عميل تجريبي', nameEn: 'Demo Customer' },
+  ];
+
+  for (const u of devUsers) {
+    const user = await prisma.user.upsert({
+      where: { tenantId_phone: { tenantId: tenant.id, phone: u.phone } },
+      create: {
+        tenantId: tenant.id,
+        phone: u.phone,
+        role: u.role,
+        status: 'active',
+        profile: { create: { nameAr: u.nameAr, nameEn: u.nameEn, preferredLanguage: 'ar' } },
+      },
+      update: { role: u.role, status: 'active' },
+      include: { profile: true },
+    });
+
+    if (u.role === 'supplier') {
+      await prisma.supplier.upsert({
+        where: { userId: user.id },
+        create: {
+          tenantId: tenant.id,
+          userId: user.id,
+          companyName: 'مورد سقيا التجريبي',
+          status: 'active',
+        },
+        update: {},
+      });
+    }
+
+    if (u.role === 'driver') {
+      const supplier = await prisma.supplier.findFirst({ where: { tenantId: tenant.id } });
+      if (!supplier) {
+        console.warn('Skipping driver seed — no supplier found');
+        continue;
+      }
+      await prisma.driver.upsert({
+        where: { userId: user.id },
+        create: {
+          tenantId: tenant.id,
+          userId: user.id,
+          supplierId: supplier.id,
+          status: 'active',
+          isOnline: true,
+          latitude: 24.7136,
+          longitude: 46.6753,
+        },
+        update: { isOnline: true },
+      });
+    }
+
+    console.log(`Dev ${u.role}: ${u.phone}`);
+  }
+
+  const faqs = [
+    {
+      id: 'faq-order-how',
+      category: 'orders',
+      sortOrder: 1,
+      questionAr: 'كيف أطلب وايت ماء؟',
+      questionEn: 'How do I order a water tanker?',
+      answerAr: 'من الصفحة الرئيسية اختر الموقع والحجم وطريقة الدفع ثم أكّد. العملاء العائدون يمكنهم التأكيد بثلاث نقرات أو أقل.',
+      answerEn: 'From Home pick location, tank size, and payment, then confirm. Returning customers can confirm in three taps or fewer.',
+    },
+    {
+      id: 'faq-payment',
+      category: 'payments',
+      sortOrder: 2,
+      questionAr: 'ما طرق الدفع المتاحة؟',
+      questionEn: 'What payment methods are available?',
+      answerAr: 'نقداً عند التسليم، بطاقة عبر ميسر، محفظة سقيا، أو حساب آجل للعملاء المعتمدين.',
+      answerEn: 'Cash on delivery, card via Moyasar, Suqya wallet, or credit account for approved customers.',
+    },
+    {
+      id: 'faq-track',
+      category: 'orders',
+      sortOrder: 3,
+      questionAr: 'كيف أتتبع طلبي؟',
+      questionEn: 'How do I track my order?',
+      answerAr: 'افتح الطلب من سجل الطلبات لعرض الخريطة الحية وحالة السائق.',
+      answerEn: 'Open the order from Order History to see the live map and driver status.',
+    },
+    {
+      id: 'faq-language',
+      category: 'account',
+      sortOrder: 4,
+      questionAr: 'كيف أغيّر اللغة؟',
+      questionEn: 'How do I change the language?',
+      answerAr: 'من الإعدادات اختر العربية أو الإنجليزية. يتبدّل الاتجاه فوراً دون إعادة تشغيل التطبيق.',
+      answerEn: 'In Settings choose Arabic or English. Layout direction flips instantly without restarting the app.',
+    },
+  ];
+
+  for (const f of faqs) {
+    await prisma.faq.upsert({
+      where: { id: f.id },
+      create: { ...f, tenantId: tenant.id, isActive: true },
+      update: {
+        questionAr: f.questionAr,
+        questionEn: f.questionEn,
+        answerAr: f.answerAr,
+        answerEn: f.answerEn,
+        category: f.category,
+        sortOrder: f.sortOrder,
+      },
+    });
+  }
+
+  const templates = [
+    {
+      event: 'order.completed',
+      channel: 'push',
+      titleAr: 'تم إكمال الطلب',
+      titleEn: 'Order completed',
+      bodyAr: 'تم إكمال طلبك رقم {{orderNumber}} بنجاح',
+      bodyEn: 'Your order {{orderNumber}} was completed successfully',
+    },
+    {
+      event: 'order.dispatched',
+      channel: 'push',
+      titleAr: 'السائق في الطريق',
+      titleEn: 'Driver on the way',
+      bodyAr: 'طلبك {{orderNumber}} خرج للتوصيل',
+      bodyEn: 'Your order {{orderNumber}} is out for delivery',
+    },
+    {
+      event: 'ops.delayed_delivery',
+      channel: 'in_app',
+      titleAr: 'تأخير توصيل',
+      titleEn: 'Delayed delivery',
+      bodyAr: 'الطلب {{orderNumber}} تجاوز الوقت المتوقع',
+      bodyEn: 'Order {{orderNumber}} exceeded expected delivery time',
+    },
+  ];
+
+  for (const t of templates) {
+    await prisma.notificationTemplate.upsert({
+      where: { event_channel: { event: t.event, channel: t.channel } },
+      create: t,
+      update: {
+        titleAr: t.titleAr,
+        titleEn: t.titleEn,
+        bodyAr: t.bodyAr,
+        bodyEn: t.bodyEn,
+      },
+    });
+  }
+
   console.log('Seed completed.');
   console.log(`Default tenant ID: ${tenant.id}`);
   console.log(`Default city ID: ${city.id}`);
+  console.log('Dev OTP code: 123456 (when NODE_ENV=development)');
 }
 
 main()

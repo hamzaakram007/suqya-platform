@@ -1,5 +1,14 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Headers,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Request } from 'express';
 import { PaymentService } from './payment.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -23,7 +32,9 @@ class SplitItemDto {
 class SplitPaymentDto {
   @ApiProperty() @IsUUID() orderId!: string;
   @ApiProperty({ type: [SplitItemDto] })
-  @IsArray() @ValidateNested({ each: true }) @Type(() => SplitItemDto)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SplitItemDto)
   splits!: SplitItemDto[];
 }
 
@@ -41,13 +52,14 @@ export class PaymentController {
   @ApiOperation({ summary: 'Create payment intent' })
   async createIntent(@CurrentUser() user: JwtPayload, @Body() dto: PaymentIntentDto) {
     const order = await this.prisma.order.findFirstOrThrow({
-      where: { id: dto.orderId, tenantId: user.tenantId },
+      where: { id: dto.orderId, tenantId: user.tenantId, customerId: user.sub },
     });
     return this.paymentService.createIntent(
       user.tenantId,
       dto.orderId,
       order.totalAmount,
       dto.method,
+      user.sub,
     );
   }
 
@@ -55,8 +67,11 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Capture payment' })
-  capture(@Body('transactionId') transactionId: string) {
-    return this.paymentService.capture(transactionId);
+  capture(
+    @CurrentUser() user: JwtPayload,
+    @Body('transactionId') transactionId: string,
+  ) {
+    return this.paymentService.capture(transactionId, user.tenantId);
   }
 
   @Post('split')
@@ -64,12 +79,25 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Split payment across methods' })
   split(@CurrentUser() user: JwtPayload, @Body() dto: SplitPaymentDto) {
-    return this.paymentService.createSplitPayment(user.tenantId, dto.orderId, dto.splits);
+    return this.paymentService.createSplitPayment(
+      user.tenantId,
+      dto.orderId,
+      dto.splits,
+      user.sub,
+    );
   }
 
   @Post('webhook')
-  @ApiOperation({ summary: 'Payment gateway webhook' })
-  webhook(@Body() payload: Record<string, unknown>) {
-    return this.paymentService.handleWebhook(payload);
+  @ApiOperation({ summary: 'Payment gateway webhook (HMAC verified)' })
+  webhook(
+    @Req() req: Request,
+    @Body() payload: Record<string, unknown>,
+    @Headers('x-moyasar-signature') signature?: string,
+  ) {
+    const rawBody = (req as Request & { rawBody?: string }).rawBody ?? JSON.stringify(payload);
+    if (!signature && process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('Missing webhook signature');
+    }
+    return this.paymentService.handleWebhook(payload, rawBody, signature);
   }
 }

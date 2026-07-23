@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: suqya
+  labels:
+    app.kubernetes.io/name: suqya
+    app.kubernetes.io/part-of: suqya-platform

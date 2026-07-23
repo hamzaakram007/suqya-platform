@@ -17,6 +17,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../common/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.module';
+import { NotFoundException } from '@nestjs/common';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -47,16 +48,17 @@ export class OrderController {
   }
 
   @Get(':id')
-  @Roles('customer', 'driver', 'supplier', 'admin')
+  @Roles('customer', 'driver', 'supplier', 'admin', 'dispatcher')
   @ApiOperation({ summary: 'Get order details' })
   get(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.orderService.findById(id, user.sub);
+    return this.orderService.findById(id, user);
   }
 
   @Get(':id/track')
-  @ApiOperation({ summary: 'Live order tracking' })
-  track(@Param('id') id: string) {
-    return this.orderService.track(id);
+  @Roles('customer', 'driver', 'supplier', 'admin', 'dispatcher')
+  @ApiOperation({ summary: 'Live order tracking (authenticated)' })
+  track(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
+    return this.orderService.track(id, user);
   }
 
   @Patch(':id/cancel')
@@ -81,7 +83,7 @@ export class OrderController {
     const order = await this.prisma.order.findFirst({
       where: { id, customerId: user.sub, status: 'completed' },
     });
-    if (!order?.driverId) throw new Error('Order not found or not rateable');
+    if (!order?.driverId) throw new NotFoundException('Order not found or not rateable');
 
     return this.prisma.rating.create({
       data: {

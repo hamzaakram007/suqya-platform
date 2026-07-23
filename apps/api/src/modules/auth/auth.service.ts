@@ -11,6 +11,7 @@ import { PrismaService } from '../../prisma/prisma.module';
 import { UserRole, UserStatus } from '@prisma/client';
 import { SendOtpDto, VerifyOtpDto } from './auth.dto';
 import { JwtPayload } from '../../common/guards/jwt-auth.guard';
+import { SELF_REGISTER_ROLES } from '../../common/constants/roles';
 
 @Injectable()
 export class AuthService {
@@ -21,18 +22,18 @@ export class AuthService {
   ) {}
 
   async sendOtp(dto: SendOtpDto, tenantId: string) {
-    const code = this.config.get('NODE_ENV') === 'production'
-      ? Math.floor(100000 + Math.random() * 900000).toString()
-      : '123456';
+    const code =
+      this.config.get('NODE_ENV') === 'production'
+        ? Math.floor(100000 + Math.random() * 900000).toString()
+        : '123456';
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.otpCode.create({
-      data: { phone: dto.phone, code, expiresAt },
+      data: { phone: dto.phone, code, expiresAt, tenantId },
     });
 
-    // TODO: Send via Unifonic/Msegat in production
-    console.log(`[OTP] ${dto.phone}: ${code}`);
+    console.log(`[OTP] ${dto.phone}@${tenantId}: ${code}`);
 
     return { message: 'OTP sent successfully', expiresIn: 300 };
   }
@@ -41,6 +42,7 @@ export class AuthService {
     const otp = await this.prisma.otpCode.findFirst({
       where: {
         phone: dto.phone,
+        tenantId,
         code: dto.code,
         used: false,
         expiresAt: { gt: new Date() },
@@ -63,11 +65,18 @@ export class AuthService {
     });
 
     if (!user) {
+      const role = dto.role ?? UserRole.customer;
+      if (!SELF_REGISTER_ROLES.includes(role)) {
+        throw new BadRequestException(
+          'Admin and dispatcher roles require invitation',
+        );
+      }
+
       user = await this.prisma.user.create({
         data: {
           tenantId,
           phone: dto.phone,
-          role: dto.role as UserRole,
+          role,
           status: UserStatus.active,
           profile: { create: { preferredLanguage: 'ar' } },
         },
@@ -75,7 +84,12 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.generateTokens(user.id, tenantId, user.role, user.phone);
+    const tokens = await this.generateTokens(
+      user.id,
+      tenantId,
+      user.role,
+      user.phone,
+    );
 
     return {
       accessToken: tokens.accessToken,
@@ -108,6 +122,10 @@ export class AuthService {
     }
 
     const user = validSession.user;
+    if (user.status !== 'active') {
+      throw new UnauthorizedException('Account inactive');
+    }
+
     return this.generateTokens(user.id, user.tenantId, user.role, user.phone);
   }
 

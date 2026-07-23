@@ -1,0 +1,68 @@
+/**
+ * Suqya Design Tokens V2 — CSS custom properties (light default).
+ * Toggle [data-theme="dark"] or .theme-dark on <html>.
+ */
+:root {
+  --sq-primary: #0a6e6e;
+  --sq-primary-dark: #085858;
+  --sq-primary-muted: #e6f3f3;
+  --sq-accent: #c9a227;
+  --sq-accent-muted: #f8f1d8;
+  --sq-bg: #f4f7f7;
+  --sq-surface: #ffffff;
+  --sq-surface-elevated: #ffffff;
+  --sq-text: #0f1f1f;
+  --sq-text-secondary: #5a7070;
+  --sq-text-inverse: #ffffff;
+  --sq-border: #d8e3e3;
+  --sq-border-strong: #a8c0c0;
+  --sq-success: #1b7a4e;
+  --sq-warning: #c47a00;
+  --sq-error: #c62828;
+  --sq-info: #1565c0;
+  --sq-scrim: rgba(15, 31, 31, 0.45);
+  --sq-radius-sm: 8px;
+  --sq-radius-md: 12px;
+  --sq-radius-lg: 16px;
+  --sq-radius-xl: 24px;
+  --sq-space-1: 4px;
+  --sq-space-2: 8px;
+  --sq-space-3: 12px;
+  --sq-space-4: 16px;
+  --sq-space-5: 20px;
+  --sq-space-6: 24px;
+  --sq-space-8: 32px;
+  --sq-font-ar: 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
+  --sq-font-en: 'IBM Plex Sans', system-ui, sans-serif;
+  --sq-shadow-sm: 0 1px 2px rgba(15, 31, 31, 0.06);
+  --sq-shadow-md: 0 4px 16px rgba(15, 31, 31, 0.08);
+  --sq-shadow-lg: 0 12px 40px rgba(15, 31, 31, 0.12);
+  --sq-shadow-fab: 0 8px 24px rgba(10, 110, 110, 0.28);
+  --sq-ease: cubic-bezier(0.2, 0, 0, 1);
+  --sq-duration: 280ms;
+}
+
+[data-theme='dark'],
+.theme-dark {
+  --sq-primary: #3dadb0;
+  --sq-primary-dark: #2a8a8c;
+  --sq-primary-muted: #143232;
+  --sq-accent: #d4b44a;
+  --sq-accent-muted: #3a3420;
+  --sq-bg: #0b1414;
+  --sq-surface: #142020;
+  --sq-surface-elevated: #1a2a2a;
+  --sq-text: #f2f7f7;
+  --sq-text-secondary: #9bb0b0;
+  --sq-text-inverse: #0b1414;
+  --sq-border: #2a3c3c;
+  --sq-border-strong: #3d5555;
+  --sq-success: #4caf7a;
+  --sq-warning: #e6a23c;
+  --sq-error: #ef5350;
+  --sq-info: #64b5f6;
+  --sq-scrim: rgba(0, 0, 0, 0.55);
+  --sq-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sq-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --sq-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+}

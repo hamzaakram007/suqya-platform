@@ -1,0 +1,204 @@
+{
+  "@@locale": "en",
+  "appTitle": "Suqya",
+  "appTagline": "Clean water… to your door",
+  "phoneLabel": "Phone number",
+  "phoneHint": "5XXXXXXXX",
+  "sendOtp": "Continue",
+  "otpTitle": "Verification code",
+  "otpSubtitle": "Enter the code sent to your phone",
+  "otpHint": "We will send a one-time verification code",
+  "enterCode": "Code",
+  "confirm": "Confirm",
+  "confirmOrder": "Confirm order",
+  "smartReorder": "Quick reorder — your saved choices are ready",
+  "welcome": "Welcome",
+  "orderNow": "Order now",
+  "homeTab": "Home",
+  "trackTab": "Track",
+  "accountTab": "Account",
+  "orders": "My orders",
+  "orderDetail": "Order details",
+  "addresses": "Addresses",
+  "wallet": "Wallet",
+  "support": "Support",
+  "notifications": "Notifications",
+  "settings": "Settings",
+  "coupons": "Coupons",
+  "credit": "Credit account",
+  "invoices": "Invoices",
+  "ratings": "Ratings",
+  "recurringOrders": "Recurring orders",
+  "favorites": "Favorites",
+  "help": "Help",
+  "faq": "FAQ",
+  "about": "About Suqya",
+  "profile": "Account",
+  "trackOrder": "Track order",
+  "noActiveOrder": "No active order",
+  "noActiveOrderHint": "Place an order from Home to start live tracking",
+  "selectAddress": "Choose address",
+  "selectTank": "Choose size",
+  "paymentMethod": "Payment method",
+  "cashOnDelivery": "Cash on delivery",
+  "cardPay": "Card / Mada",
+  "creditPay": "Credit account",
+  "applePay": "Apple Pay",
+  "googlePay": "Google Pay",
+  "balance": "Balance",
+  "topUp": "Top up wallet",
+  "addAddress": "Add address",
+  "newTicket": "New ticket",
+  "language": "Language",
+  "languageAr": "العربية",
+  "languageEn": "English",
+  "switchLanguage": "Change language",
+  "logout": "Sign out",
+  "noData": "Nothing here yet",
+  "noOrders": "No orders yet",
+  "noOrdersHint": "Your first order is three taps away",
+  "noAddresses": "No saved addresses",
+  "noAddressesHint": "Add a delivery address for faster ordering",
+  "noTickets": "No support tickets",
+  "noTicketsHint": "We’re here whenever you need us",
+  "emptyNotifications": "No notifications",
+  "emptyFaqs": "No questions yet",
+  "emptyTankSizes": "No tank sizes available",
+  "emptyWalletActivity": "Top-ups and payments will appear here",
+  "emptyFavorites": "No favorites yet",
+  "retry": "Retry",
+  "loading": "Loading…",
+  "confirming": "Confirming…",
+  "adding": "Adding…",
+  "sending": "Sending…",
+  "errorGeneric": "Something went wrong, please try again",
+  "errorNetwork": "Check your connection and try again",
+  "errorLoadData": "Could not load data",
+  "errorLoadOrders": "Could not load orders",
+  "errorLoadAddresses": "Could not load addresses",
+  "errorLoadWallet": "Could not load wallet",
+  "errorLoadTickets": "Could not load tickets",
+  "errorLoadFaqs": "Could not load FAQs",
+  "errorLoad": "Could not load",
+  "errorCreateOrder": "Could not create order",
+  "errorAddAddress": "Could not add address",
+  "errorCreateTicket": "Could not create ticket",
+  "errorTrackOrder": "Could not track order",
+  "errorTopUp": "Top-up failed",
+  "errorInvalidPhone": "Enter a valid Saudi mobile number",
+  "errorOtpSendFailed": "Could not send code. Try again.",
+  "errorOtpIncomplete": "Enter the full code",
+  "errorOtpInvalid": "Invalid code. Try again.",
+  "defaultCustomerName": "Suqya customer",
+  "yourServices": "Your services",
+  "helpAndSettings": "Help & settings",
+  "pushNotifications": "Push notifications",
+  "pushNotificationsHint": "Receive order updates",
+  "appearance": "Appearance",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "biometricUnlock": "Unlock with biometrics / Face ID",
+  "biometricUnlockHint": "Quick protection when returning to the app",
+  "addressFallback": "Address",
+  "defaultBadge": "Default",
+  "litersUnit": "{liters} L",
+  "@litersUnit": {
+    "placeholders": {
+      "liters": { "type": "String" }
+    }
+  },
+  "statusDelivered": "Delivered",
+  "statusDriverArrived": "Driver arrived",
+  "statusInTransit": "On the way to you",
+  "statusDriverAssigned": "Driver assigned",
+  "statusConfirmed": "Order confirmed",
+  "statusPending": "Pending",
+  "statusUpdating": "Updating…",
+  "statusCompleted": "Completed",
+  "statusCancelled": "Cancelled",
+  "statusOnRoute": "On the way",
+  "waterOrder": "Water order",
+  "orderNumber": "Order #{id}",
+  "@orderNumber": {
+    "placeholders": {
+      "id": { "type": "String" }
+    }
+  },
+  "labelStatus": "Status",
+  "labelSize": "Size",
+  "labelPayment": "Payment",
+  "labelTotal": "Total",
+  "deliveryAddress": "Delivery address",
+  "zatcaInvoice": "ZATCA invoice / QR",
+  "scanQrHint": "Scan the code to verify the invoice",
+  "topUpSuccess": "Added {amount} SAR to your wallet",
+  "@topUpSuccess": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "recentActivity": "Recent activity",
+  "transactionFallback": "Transaction",
+  "ticketFallback": "Ticket",
+  "defaultTicketSubject": "Order inquiry",
+  "defaultTicketMessage": "I need help with my latest order",
+  "version": "Version 0.1.0",
+  "aboutDescription": "Suqya — water tanker delivery across Saudi Arabia. Fast, reliable water delivery to your door.",
+  "copyright": "© 2026 Suqya. All rights reserved.",
+  "couponCodeLabel": "Coupon code",
+  "validateCoupon": "Validate coupon",
+  "couponValid": "Valid coupon: {code}",
+  "@couponValid": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "discountAmount": "Discount: {amount} SAR",
+  "@discountAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "creditLimit": "Limit",
+  "creditUsed": "Used",
+  "creditAvailable": "Available",
+  "invoiceNumber": "Invoice #{number}",
+  "@invoiceNumber": {
+    "placeholders": {
+      "number": { "type": "String" }
+    }
+  },
+  "thanksForRating": "Thanks for your rating",
+  "orderIdLabel": "Order ID",
+  "ratingLabel": "Rating",
+  "commentOptional": "Comment (optional)",
+  "submitRating": "Submit rating",
+  "activeSubscription": "Active subscription",
+  "planLabel": "Plan: {name}",
+  "@planLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "frequencyLabel": "Frequency: {frequency}",
+  "@frequencyLabel": {
+    "placeholders": {
+      "frequency": { "type": "String" }
+    }
+  },
+  "frequencyWeekly": "Weekly",
+  "perMonth": "month",
+  "etaMinutes": "Arriving in {minutes} min",
+  "@etaMinutes": {
+    "placeholders": {
+      "minutes": { "type": "String" }
+    }
+  },
+  "sar": "{amount} SAR",
+  "@sar": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  }
+}

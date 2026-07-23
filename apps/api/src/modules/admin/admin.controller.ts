@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Headers } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -47,5 +47,180 @@ export class AdminController {
     return this.prisma.tenant.findMany({
       include: { _count: { select: { users: true, orders: true } } },
     });
+  }
+
+  @Get('users')
+  @ApiOperation({ summary: 'List users' })
+  users(
+    @CurrentUser() user: JwtPayload,
+    @Query('role') role?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const take = limit ?? 20;
+    const skip = ((page ?? 1) - 1) * take;
+    const where = {
+      tenantId: user.tenantId,
+      ...(role ? { role: role as never } : {}),
+    };
+    return Promise.all([
+      this.prisma.user.findMany({
+        where,
+        include: { profile: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.user.count({ where }),
+    ]).then(([data, total]) => ({ data, meta: { page: page ?? 1, limit: take, total } }));
+  }
+
+  @Get('orders')
+  @ApiOperation({ summary: 'List all orders' })
+  orders(
+    @CurrentUser() user: JwtPayload,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const take = limit ?? 20;
+    const skip = ((page ?? 1) - 1) * take;
+    const where = {
+      tenantId: user.tenantId,
+      ...(status ? { status: status as never } : {}),
+    };
+    return Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          customer: { include: { profile: true } },
+          supplier: true,
+          driver: { include: { user: { include: { profile: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.order.count({ where }),
+    ]).then(([data, total]) => ({ data, meta: { page: page ?? 1, limit: take, total } }));
+  }
+
+  @Get('drivers')
+  @ApiOperation({ summary: 'List drivers' })
+  drivers(@CurrentUser() user: JwtPayload) {
+    return this.prisma.driver.findMany({
+      where: { tenantId: user.tenantId },
+      include: {
+        user: { include: { profile: true } },
+        truck: true,
+        supplier: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('suppliers')
+  @ApiOperation({ summary: 'List suppliers' })
+  suppliers(@CurrentUser() user: JwtPayload) {
+    return this.prisma.supplier.findMany({
+      where: { tenantId: user.tenantId },
+      include: {
+        user: { include: { profile: true } },
+        _count: { select: { drivers: true, trucks: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('search')
+  @ApiOperation({
+    summary: 'Locale-aware search across tenants, users, suppliers, tank sizes',
+  })
+  async search(
+    @CurrentUser() user: JwtPayload,
+    @Query('q') q: string,
+    @Query('locale') localeQuery?: string,
+    @Headers('accept-language') acceptLanguage?: string,
+  ) {
+    const term = (q ?? '').trim();
+    if (!term || term.length < 2) {
+      return { tenants: [], users: [], suppliers: [], tankSizes: [], coupons: [] };
+    }
+
+    const locale =
+      localeQuery === 'en' || localeQuery === 'ar'
+        ? localeQuery
+        : acceptLanguage?.toLowerCase().startsWith('en')
+          ? 'en'
+          : 'ar';
+
+    const dual = true; // ops dual-field search
+    const nameFilter =
+      locale === 'en'
+        ? {
+            OR: [
+              { nameEn: { contains: term, mode: 'insensitive' as const } },
+              ...(dual
+                ? [{ nameAr: { contains: term, mode: 'insensitive' as const } }]
+                : []),
+            ],
+          }
+        : {
+            OR: [
+              { nameAr: { contains: term, mode: 'insensitive' as const } },
+              ...(dual
+                ? [{ nameEn: { contains: term, mode: 'insensitive' as const } }]
+                : []),
+            ],
+          };
+
+    const [tenants, users, suppliers, tankSizes, coupons] = await Promise.all([
+      this.prisma.tenant.findMany({
+        where: {
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { nameAr: { contains: term, mode: 'insensitive' } },
+            { nameEn: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+      }),
+      this.prisma.user.findMany({
+        where: {
+          tenantId: user.tenantId,
+          OR: [
+            { phone: { contains: term } },
+            { profile: { nameAr: { contains: term, mode: 'insensitive' } } },
+            { profile: { nameEn: { contains: term, mode: 'insensitive' } } },
+          ],
+        },
+        include: { profile: true },
+        take: 10,
+      }),
+      this.prisma.supplier.findMany({
+        where: {
+          tenantId: user.tenantId,
+          companyName: { contains: term, mode: 'insensitive' },
+        },
+        take: 10,
+      }),
+      this.prisma.tankSize.findMany({
+        where: { tenantId: user.tenantId, ...nameFilter },
+        take: 10,
+      }),
+      this.prisma.coupon.findMany({
+        where: {
+          tenantId: user.tenantId,
+          OR: [
+            { code: { contains: term, mode: 'insensitive' } },
+            { titleAr: { contains: term, mode: 'insensitive' } },
+            { titleEn: { contains: term, mode: 'insensitive' } },
+          ],
+        },
+        take: 10,
+      }),
+    ]);
+
+    return { locale, tenants, users, suppliers, tankSizes, coupons };
   }
 }

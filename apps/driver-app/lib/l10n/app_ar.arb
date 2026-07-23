@@ -1,0 +1,123 @@
+{
+  "@@locale": "ar",
+  "appTitle": "سقيا - سائق",
+  "phoneLabel": "رقم الجوال",
+  "sendOtp": "إرسال رمز التحقق",
+  "otpTitle": "رمز التحقق",
+  "enterCode": "أدخل الرمز",
+  "confirm": "تأكيد",
+  "jobs": "الرحلات",
+  "jobDetail": "تفاصيل الرحلة",
+  "accept": "قبول",
+  "reject": "رفض",
+  "pod": "إثبات التسليم",
+  "earnings": "الأرباح",
+  "profile": "الملف الشخصي",
+  "profileShort": "الملف",
+  "settings": "الإعدادات",
+  "online": "متاح",
+  "offline": "غير متاح",
+  "navigation": "التنقل",
+  "logout": "تسجيل الخروج",
+  "noData": "لا توجد بيانات",
+  "submitPod": "تأكيد التسليم",
+  "loginSubtitle": "سجّل دخولك لبدء التوصيل",
+  "invalidPhone": "أدخل رقم جوال صحيح",
+  "otpSentTo": "تم إرسال الرمز إلى {phone}",
+  "@otpSentTo": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "driverMapLabel": "خريطة السائق",
+  "today": "اليوم",
+  "currencySar": "ر.س",
+  "offlineBannerMessage": "أنت دون اتصال — {count} عملية ستُزامَن تلقائياً",
+  "@offlineBannerMessage": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncNow": "مزامنة الآن",
+  "enableOnline": "تفعيل التواجد",
+  "disableOnline": "إيقاف التواجد",
+  "updateFailedQueued": "تعذر التحديث — أُضيف للطابور دون اتصال",
+  "youAreOnline": "أنت متصل",
+  "youAreOffline": "أنت غير متصل",
+  "waitingForJobs": "بانتظار طلبات التوصيل القريبة",
+  "goOnlineHint": "فعّل التواجد لاستقبال الطلبات",
+  "continueActiveJob": "متابعة الرحلة النشطة",
+  "readyForJobs": "جاهز لاستقبال الطلبات",
+  "goOnlineAction": "اذهب للعمل",
+  "noJobsTitle": "لا رحلات حالياً",
+  "noJobsSubtitle": "فعّل التواجد على الخريطة لاستقبال العروض",
+  "backToMap": "العودة للخريطة",
+  "distanceKm": "{distance} كم",
+  "@distanceKm": {
+    "placeholders": {
+      "distance": { "type": "String" }
+    }
+  },
+  "earningsAmount": "{amount} ر.س",
+  "@earningsAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "jobRouteMap": "مسار الرحلة",
+  "activeJob": "رحلة نشطة",
+  "stepNavigate": "انتقل إلى نقطة التعبئة / العميل",
+  "stepFilled": "أكد تعبئة الخزان",
+  "stepArrive": "أكد الوصول للعميل",
+  "stepPod": "أكمل إثبات التسليم",
+  "navigate": "تنقّل",
+  "filled": "تم التعبئة",
+  "arrived": "وصلت",
+  "fillStep": "تعبئة",
+  "arriveStep": "وصول",
+  "podShort": "POD",
+  "jobAction": "إجراء رحلة",
+  "queuedOffline": "أُضيف للطابور دون اتصال",
+  "newJobOffer": "طلب جديد",
+  "documentDelivery": "وثّق التسليم",
+  "podInstructions": "التقط صورة الخزان أو احصل على توقيع العميل",
+  "photo": "صورة",
+  "capture": "التقاط",
+  "signature": "توقيع",
+  "customer": "العميل",
+  "done": "تم",
+  "customerOtpOptional": "رمز العميل (اختياري)",
+  "podRequired": "التقط صورة أو وقّع أولاً",
+  "podSuccess": "تم تأكيد التسليم بنجاح",
+  "podOfflineLabel": "إثبات تسليم",
+  "total": "الإجمالي",
+  "trips": "الرحلات",
+  "details": "التفاصيل",
+  "noEarningsTitle": "لا أرباح بعد",
+  "noEarningsSubtitle": "أكمل رحلات لاستعراض الأرباح هنا",
+  "orderLabel": "طلب {orderId}",
+  "@orderLabel": {
+    "placeholders": {
+      "orderId": { "type": "String" }
+    }
+  },
+  "locationTracking": "تتبع الموقع",
+  "active": "نشط",
+  "stopped": "متوقف",
+  "offlineQueue": "طابور دون اتصال",
+  "pendingActions": "{count} عملية معلقة",
+  "@pendingActions": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "sync": "مزامنة",
+  "language": "اللغة",
+  "languageArabic": "العربية",
+  "languageEnglish": "English",
+  "locationUpdate": "تحديث الموقع",
+  "demoTank18": "18 طن",
+  "demoTank12": "12 طن",
+  "demoAddress1": "الرياض، حي النرجس",
+  "demoAddress2": "الرياض، حي الياسمين"
+}

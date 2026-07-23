@@ -1,46 +1,93 @@
-const mockOrders = [
-  { id: 'SQ-001247', customer: 'محمد العتيبي', status: 'in_transit', amount: 250 },
-  { id: 'SQ-001246', customer: 'شركة البناء', status: 'completed', amount: 400 },
-  { id: 'SQ-001245', customer: 'فندق الريتز', status: 'supplier_review', amount: 180 },
-];
+'use client';
 
-const statusColors: Record<string, string> = {
-  in_transit: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  supplier_review: 'bg-yellow-100 text-yellow-800',
-};
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
+import { apiFetch } from '@/lib/api';
+import { useLocaleContext } from '@/providers/locale-provider';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@suqya/ui-kit';
+
+interface OrderRow {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  customer?: { profile?: { nameAr?: string; nameEn?: string } };
+}
+
+interface OrdersResponse {
+  data: OrderRow[];
+}
 
 export function OrdersTable() {
+  const t = useTranslations();
+  const { locale } = useLocaleContext();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin', 'orders', 'recent'],
+    queryFn: () => apiFetch<OrdersResponse>('/admin/orders?limit=5'),
+  });
+
+  const dateLocale = locale === 'ar' ? 'ar-SA' : 'en-US';
+
+  const statusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      in_transit: t('in_transit'),
+      completed: t('delivered'),
+      supplier_review: t('status_review'),
+    };
+    return map[status] ?? status;
+  };
+
+  const orders = data?.data ?? [];
+
   return (
-    <div className="bg-white rounded-xl shadow p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold">الطلبات الأخيرة</h2>
-        <button className="text-sm text-primary hover:underline">تصدير Excel</button>
-      </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-right py-2">رقم الطلب</th>
-            <th className="text-right py-2">العميل</th>
-            <th className="text-right py-2">الحالة</th>
-            <th className="text-right py-2">المبلغ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mockOrders.map((order) => (
-            <tr key={order.id} className="border-b">
-              <td className="py-2">{order.id}</td>
-              <td className="py-2">{order.customer}</td>
-              <td className="py-2">
-                <span className={`px-2 py-1 rounded text-xs ${statusColors[order.status]}`}>
-                  {order.status}
-                </span>
-              </td>
-              <td className="py-2">{order.amount} ر.س</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <div>
+          <CardTitle>{t('recent_activity')}</CardTitle>
+          <CardDescription>{t('recent_orders_desc')}</CardDescription>
+        </div>
+        <Link
+          href="/orders"
+          className="text-sm font-medium text-[var(--sq-primary)] hover:underline"
+        >
+          {t('view_all')}
+        </Link>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading && (
+          <p className="text-sm text-[var(--sq-text-secondary)]">{t('loading')}</p>
+        )}
+        {error && <p className="text-sm text-[var(--sq-error)]">{error.message}</p>}
+        {!isLoading && !error && orders.length === 0 && (
+          <p className="text-sm text-[var(--sq-text-secondary)]">{t('no_orders')}</p>
+        )}
+        {orders.map((order) => (
+          <div
+            key={order.id}
+            className="flex items-center justify-between gap-3 rounded-[var(--sq-radius-md)] border border-[var(--sq-border)] px-3 py-2.5"
+          >
+            <div>
+              <p className="font-medium text-[var(--sq-text)]">{order.orderNumber}</p>
+              <p className="text-xs text-[var(--sq-text-secondary)]">
+                {order.customer?.profile?.nameAr ??
+                  order.customer?.profile?.nameEn ??
+                  '—'}{' '}
+                · {statusLabel(order.status)}
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-[var(--sq-primary)]">
+              {Number(order.totalAmount).toLocaleString(dateLocale)} {t('sar')}
+            </p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

@@ -1,10 +1,88 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.module';
 import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CreditService {
   constructor(private prisma: PrismaService) {}
+
+  async assertCreditAvailable(customerId: string, amount: Decimal) {
+    const account = await this.prisma.creditAccount.findUnique({
+      where: { customerId },
+    });
+
+    if (!account || account.status !== 'approved') {
+      throw new BadRequestException('Credit account not approved');
+    }
+
+    const available = account.creditLimit.sub(account.outstandingBalance);
+    if (available.lt(amount)) {
+      throw new BadRequestException('Insufficient credit limit');
+    }
+
+    return account;
+  }
+
+  async chargeOnOrder(
+    customerId: string,
+    orderId: string,
+    amount: Decimal,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx ?? this.prisma;
+    const account = await db.creditAccount.findUniqueOrThrow({
+      where: { customerId },
+    });
+
+    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await db.creditTransaction.create({
+      data: {
+        creditAccountId: account.id,
+        orderId,
+        amount,
+        type: 'charge',
+        dueDate,
+      },
+    });
+
+    await db.creditAccount.update({
+      where: { id: account.id },
+      data: {
+        outstandingBalance: account.outstandingBalance.add(amount),
+      },
+    });
+  }
+
+  async reverseCharge(customerId: string, orderId: string) {
+    const account = await this.prisma.creditAccount.findUnique({
+      where: { customerId },
+    });
+    if (!account) return;
+
+    const charge = await this.prisma.creditTransaction.findFirst({
+      where: { creditAccountId: account.id, orderId, type: 'charge' },
+    });
+    if (!charge) return;
+
+    await this.prisma.$transaction([
+      this.prisma.creditTransaction.create({
+        data: {
+          creditAccountId: account.id,
+          orderId,
+          amount: charge.amount.neg(),
+          type: 'reversal',
+        },
+      }),
+      this.prisma.creditAccount.update({
+        where: { id: account.id },
+        data: {
+          outstandingBalance: account.outstandingBalance.sub(charge.amount),
+        },
+      }),
+    ]);
+  }
 
   async applyForCredit(customerId: string, tenantId: string, requestedLimit: number) {
     const existing = await this.prisma.creditAccount.findUnique({
@@ -122,7 +200,11 @@ export class CreditService {
       where: { tenantId, status: 'approved', outstandingBalance: { gt: 0 } },
       include: {
         transactions: {
-          where: { type: 'charge', paidAt: null, dueDate: { lte: new Date(Date.now() + 7 * 86400000) } },
+          where: {
+            type: 'charge',
+            paidAt: null,
+            dueDate: { lte: new Date(Date.now() + 7 * 86400000) },
+          },
         },
       },
     });
@@ -138,7 +220,6 @@ export class CreditService {
           },
         });
         reminders.push(reminder);
-        // TODO: Queue notification job via BullMQ
       }
     }
 

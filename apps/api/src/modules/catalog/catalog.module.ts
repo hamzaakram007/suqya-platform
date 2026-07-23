@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { CatalogController } from './catalog.controller';
+import { CatalogController, UserLocaleController } from './catalog.controller';
 
 @Module({
-  controllers: [CatalogController],
+  controllers: [CatalogController, UserLocaleController],
 })
 export class CatalogModule {}

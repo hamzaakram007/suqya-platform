@@ -1,0 +1,123 @@
+{
+  "@@locale": "en",
+  "appTitle": "Suqya - Driver",
+  "phoneLabel": "Phone number",
+  "sendOtp": "Send verification code",
+  "otpTitle": "Verification code",
+  "enterCode": "Enter code",
+  "confirm": "Confirm",
+  "jobs": "Jobs",
+  "jobDetail": "Job details",
+  "accept": "Accept",
+  "reject": "Reject",
+  "pod": "Proof of delivery",
+  "earnings": "Earnings",
+  "profile": "Profile",
+  "profileShort": "Profile",
+  "settings": "Settings",
+  "online": "Online",
+  "offline": "Offline",
+  "navigation": "Navigation",
+  "logout": "Sign out",
+  "noData": "No data",
+  "submitPod": "Submit delivery",
+  "loginSubtitle": "Sign in to start delivering",
+  "invalidPhone": "Enter a valid mobile number",
+  "otpSentTo": "Code sent to {phone}",
+  "@otpSentTo": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "driverMapLabel": "Driver map",
+  "today": "Today",
+  "currencySar": "SAR",
+  "offlineBannerMessage": "You're offline — {count} action(s) will sync automatically",
+  "@offlineBannerMessage": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncNow": "Sync now",
+  "enableOnline": "Go online",
+  "disableOnline": "Go offline",
+  "updateFailedQueued": "Update failed — queued for sync when back online",
+  "youAreOnline": "You're online",
+  "youAreOffline": "You're offline",
+  "waitingForJobs": "Waiting for nearby delivery requests",
+  "goOnlineHint": "Go online to receive job offers",
+  "continueActiveJob": "Continue active job",
+  "readyForJobs": "Ready for jobs",
+  "goOnlineAction": "Go online",
+  "noJobsTitle": "No jobs right now",
+  "noJobsSubtitle": "Go online on the map to receive offers",
+  "backToMap": "Back to map",
+  "distanceKm": "{distance} km",
+  "@distanceKm": {
+    "placeholders": {
+      "distance": { "type": "String" }
+    }
+  },
+  "earningsAmount": "{amount} SAR",
+  "@earningsAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "jobRouteMap": "Job route",
+  "activeJob": "Active job",
+  "stepNavigate": "Head to fill point / customer",
+  "stepFilled": "Confirm tank filled",
+  "stepArrive": "Confirm arrival at customer",
+  "stepPod": "Complete proof of delivery",
+  "navigate": "Navigate",
+  "filled": "Tank filled",
+  "arrived": "Arrived",
+  "fillStep": "Fill",
+  "arriveStep": "Arrive",
+  "podShort": "POD",
+  "jobAction": "Job action",
+  "queuedOffline": "Queued — will sync when online",
+  "newJobOffer": "New job offer",
+  "documentDelivery": "Document delivery",
+  "podInstructions": "Take a tank photo or get customer signature",
+  "photo": "Photo",
+  "capture": "Capture",
+  "signature": "Signature",
+  "customer": "Customer",
+  "done": "Done",
+  "customerOtpOptional": "Customer code (optional)",
+  "podRequired": "Take a photo or capture signature first",
+  "podSuccess": "Delivery confirmed successfully",
+  "podOfflineLabel": "Proof of delivery",
+  "total": "Total",
+  "trips": "Trips",
+  "details": "Details",
+  "noEarningsTitle": "No earnings yet",
+  "noEarningsSubtitle": "Complete jobs to see earnings here",
+  "orderLabel": "Order {orderId}",
+  "@orderLabel": {
+    "placeholders": {
+      "orderId": { "type": "String" }
+    }
+  },
+  "locationTracking": "Location tracking",
+  "active": "Active",
+  "stopped": "Stopped",
+  "offlineQueue": "Offline queue",
+  "pendingActions": "{count} pending action(s)",
+  "@pendingActions": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "sync": "Sync",
+  "language": "Language",
+  "languageArabic": "العربية",
+  "languageEnglish": "English",
+  "locationUpdate": "Location update",
+  "demoTank18": "18 ton",
+  "demoTank12": "12 ton",
+  "demoAddress1": "Riyadh, Al Narjis",
+  "demoAddress2": "Riyadh, Al Yasmin"
+}

@@ -1,0 +1,204 @@
+{
+  "@@locale": "ar",
+  "appTitle": "سقيا",
+  "appTagline": "مياه نظيفة… إلى بابك",
+  "phoneLabel": "رقم الجوال",
+  "phoneHint": "5XXXXXXXX",
+  "sendOtp": "متابعة",
+  "otpTitle": "رمز التحقق",
+  "otpSubtitle": "أدخل الرمز المرسل إلى جوالك",
+  "otpHint": "سنرسل رمز تحقق لمرة واحدة",
+  "enterCode": "الرمز",
+  "confirm": "تأكيد",
+  "confirmOrder": "تأكيد الطلب",
+  "smartReorder": "طلب سريع — اختياراتك المحفوظة جاهزة",
+  "welcome": "أهلاً بك",
+  "orderNow": "اطلب الآن",
+  "homeTab": "الرئيسية",
+  "trackTab": "تتبع",
+  "accountTab": "حسابي",
+  "orders": "طلباتي",
+  "orderDetail": "تفاصيل الطلب",
+  "addresses": "العناوين",
+  "wallet": "المحفظة",
+  "support": "الدعم",
+  "notifications": "الإشعارات",
+  "settings": "الإعدادات",
+  "coupons": "الكوبونات",
+  "credit": "كشف حساب الآجل",
+  "invoices": "الفواتير",
+  "ratings": "التقييمات",
+  "recurringOrders": "الطلبات المتكررة",
+  "favorites": "المفضلة",
+  "help": "المساعدة",
+  "faq": "الأسئلة الشائعة",
+  "about": "عن سقيا",
+  "profile": "حسابي",
+  "trackOrder": "تتبع الطلب",
+  "noActiveOrder": "لا يوجد طلب نشط",
+  "noActiveOrderHint": "اطلب صهريجاً من الرئيسية لبدء التتبع الحي",
+  "selectAddress": "اختر العنوان",
+  "selectTank": "اختر الحجم",
+  "paymentMethod": "طريقة الدفع",
+  "cashOnDelivery": "نقداً عند التسليم",
+  "cardPay": "بطاقة / مدى",
+  "creditPay": "حساب آجل",
+  "applePay": "Apple Pay",
+  "googlePay": "Google Pay",
+  "balance": "الرصيد",
+  "topUp": "شحن المحفظة",
+  "addAddress": "إضافة عنوان",
+  "newTicket": "تذكرة جديدة",
+  "language": "اللغة",
+  "languageAr": "العربية",
+  "languageEn": "English",
+  "switchLanguage": "تغيير اللغة",
+  "logout": "تسجيل الخروج",
+  "noData": "لا توجد بيانات بعد",
+  "noOrders": "لا توجد طلبات",
+  "noOrdersHint": "أول طلب لك على بُعد ثلاث نقرات",
+  "noAddresses": "لا عناوين محفوظة",
+  "noAddressesHint": "أضف عنوان توصيل لطلب أسرع",
+  "noTickets": "لا تذاكر دعم",
+  "noTicketsHint": "نسعد بمساعدتك في أي وقت",
+  "emptyNotifications": "لا إشعارات",
+  "emptyFaqs": "لا أسئلة بعد",
+  "emptyTankSizes": "لا أحجام متاحة",
+  "emptyWalletActivity": "ستظهر عمليات الشحن والدفع هنا",
+  "emptyFavorites": "لا مفضلة بعد",
+  "retry": "إعادة المحاولة",
+  "loading": "جاري التحميل…",
+  "confirming": "جاري التأكيد…",
+  "adding": "جاري الإضافة…",
+  "sending": "جاري الإرسال…",
+  "errorGeneric": "حدث خطأ، حاول مرة أخرى",
+  "errorNetwork": "تحقق من الاتصال وحاول مرة أخرى",
+  "errorLoadData": "تعذر تحميل البيانات",
+  "errorLoadOrders": "تعذر تحميل الطلبات",
+  "errorLoadAddresses": "تعذر تحميل العناوين",
+  "errorLoadWallet": "تعذر تحميل المحفظة",
+  "errorLoadTickets": "تعذر تحميل التذاكر",
+  "errorLoadFaqs": "تعذر تحميل الأسئلة الشائعة",
+  "errorLoad": "تعذر التحميل",
+  "errorCreateOrder": "تعذر إنشاء الطلب",
+  "errorAddAddress": "تعذر إضافة العنوان",
+  "errorCreateTicket": "تعذر إنشاء التذكرة",
+  "errorTrackOrder": "تعذر تتبع الطلب",
+  "errorTopUp": "تعذر الشحن",
+  "errorInvalidPhone": "أدخل رقم جوال سعودي صحيح",
+  "errorOtpSendFailed": "تعذر إرسال الرمز. حاول مرة أخرى.",
+  "errorOtpIncomplete": "أدخل الرمز كاملاً",
+  "errorOtpInvalid": "رمز غير صحيح. حاول مجدداً.",
+  "defaultCustomerName": "عميل سقيا",
+  "yourServices": "خدماتك",
+  "helpAndSettings": "المساعدة والإعدادات",
+  "pushNotifications": "الإشعارات الفورية",
+  "pushNotificationsHint": "تلقي تحديثات الطلبات",
+  "appearance": "المظهر",
+  "themeSystem": "تلقائي",
+  "themeLight": "فاتح",
+  "themeDark": "داكن",
+  "biometricUnlock": "فتح بالبصمة / Face ID",
+  "biometricUnlockHint": "حماية سريعة عند العودة للتطبيق",
+  "addressFallback": "عنوان",
+  "defaultBadge": "افتراضي",
+  "litersUnit": "{liters} لتر",
+  "@litersUnit": {
+    "placeholders": {
+      "liters": { "type": "String" }
+    }
+  },
+  "statusDelivered": "تم التسليم",
+  "statusDriverArrived": "وصل السائق",
+  "statusInTransit": "في الطريق إليك",
+  "statusDriverAssigned": "تم تعيين السائق",
+  "statusConfirmed": "تم تأكيد الطلب",
+  "statusPending": "قيد الانتظار",
+  "statusUpdating": "جاري التحديث…",
+  "statusCompleted": "مكتمل",
+  "statusCancelled": "ملغي",
+  "statusOnRoute": "في الطريق",
+  "waterOrder": "طلب مياه",
+  "orderNumber": "طلب #{id}",
+  "@orderNumber": {
+    "placeholders": {
+      "id": { "type": "String" }
+    }
+  },
+  "labelStatus": "الحالة",
+  "labelSize": "الحجم",
+  "labelPayment": "الدفع",
+  "labelTotal": "المجموع",
+  "deliveryAddress": "عنوان التوصيل",
+  "zatcaInvoice": "فاتورة زاتكا / QR",
+  "scanQrHint": "امسح الرمز للتحقق من الفاتورة",
+  "topUpSuccess": "تم شحن {amount} ر.س",
+  "@topUpSuccess": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "recentActivity": "الحركة الأخيرة",
+  "transactionFallback": "حركة",
+  "ticketFallback": "تذكرة",
+  "defaultTicketSubject": "استفسار عن طلب",
+  "defaultTicketMessage": "أحتاج مساعدة بخصوص آخر طلب",
+  "version": "الإصدار 0.1.0",
+  "aboutDescription": "سقيا — منصة توصيل صهاريج المياه في المملكة العربية السعودية. نوفر خدمة سريعة وموثوقة لتوصيل المياه إلى باب منزلك.",
+  "copyright": "© 2026 سقيا. جميع الحقوق محفوظة.",
+  "couponCodeLabel": "رمز الكوبون",
+  "validateCoupon": "تحقق من الكوبون",
+  "couponValid": "كوبون صالح: {code}",
+  "@couponValid": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "discountAmount": "الخصم: {amount} ر.س",
+  "@discountAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "creditLimit": "الحد",
+  "creditUsed": "المستخدم",
+  "creditAvailable": "المتاح",
+  "invoiceNumber": "فاتورة #{number}",
+  "@invoiceNumber": {
+    "placeholders": {
+      "number": { "type": "String" }
+    }
+  },
+  "thanksForRating": "شكراً على تقييمك",
+  "orderIdLabel": "رقم الطلب",
+  "ratingLabel": "التقييم",
+  "commentOptional": "تعليق (اختياري)",
+  "submitRating": "إرسال التقييم",
+  "activeSubscription": "اشتراك نشط",
+  "planLabel": "الخطة: {name}",
+  "@planLabel": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "frequencyLabel": "التكرار: {frequency}",
+  "@frequencyLabel": {
+    "placeholders": {
+      "frequency": { "type": "String" }
+    }
+  },
+  "frequencyWeekly": "أسبوعي",
+  "perMonth": "شهر",
+  "etaMinutes": "الوصول خلال {minutes} دقيقة",
+  "@etaMinutes": {
+    "placeholders": {
+      "minutes": { "type": "String" }
+    }
+  },
+  "sar": "{amount} ر.س",
+  "@sar": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  }
+}
