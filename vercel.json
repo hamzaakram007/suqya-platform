@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npm run build -w @suqya/supplier-web",
-  "outputDirectory": "apps/supplier-web/.next",
+  "buildCommand": "npm run build -w @suqya/admin-web",
+  "outputDirectory": "apps/admin-web/.next",
   "framework": "nextjs"
 }
