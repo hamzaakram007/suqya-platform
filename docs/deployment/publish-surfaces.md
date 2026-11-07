@@ -1,7 +1,7 @@
 # Publish surfaces — production runbook
 
 **Goal:** Production API (Railway), production Vercel admin/supplier, and first mobile store tracks (Play internal + TestFlight).  
-**Status:** Native scaffolds + staging Android AAB/APK builds verified. **No apps are live in stores.** No production API URL exists yet — do not invent one. IPA needs macOS.  
+**Status:** Native scaffolds + staging Android AAB/APK builds on trunk (PR #9 merged). **No apps are live in stores** — Play internal + TestFlight blocked on owner credentials (see §4–§5). No production API URL yet — do not invent one. IPA needs macOS.  
 **Prereq:** Staging path green first ([`staging-api.md`](./staging-api.md)) — health, `e2e:foundation`, `db:seed:pilot`, auth smoke.  
 **Related:** Store listing stubs in [`store/`](../../store/README.md) · Flutter release helpers in [`mobile/release/`](../../mobile/release/README.md)
 
@@ -238,33 +238,90 @@ Requires Apple Developer team, bundle ids `sa.suqya.customer` / `sa.suqya.driver
 
 ## 4. Google Play — internal testing track
 
-1. Create Play Console developer account (organization preferred for Saudi entity).  
-2. Create apps: **Suqya** (customer) and **Suqya Driver**.  
-3. Complete store listing stubs from [`store/customer`](../../store/customer/) / [`store/driver`](../../store/driver/) (AR + EN).  
-4. Privacy policy URL (required) — host a page covering PDPL rights (see §6).  
-5. Upload first AAB to **Internal testing** (not production).  
-6. Add tester emails / Google Groups.  
-7. Data safety form: location, phone numbers, payment via Moyasar (no card data on device servers).  
-8. Countries: start with **Saudi Arabia**.  
-9. Keep package name stable once the first AAB is uploaded.
+**Agent audit (2026-11-07):** No Play Console access, no `GOOGLE_APPLICATION_CREDENTIALS` / Play service-account JSON, no Fastlane supply session, no upload keystore in this environment. Staging AABs under Context artifacts are **debug-signed** (`signingConfig = debug` when `key.properties` is absent) and **will be rejected** by Play for the internal track. Do not claim an internal-track URL until a properly signed AAB is uploaded.
 
-Signing: create an upload keystore locally; store passwords in a password manager — never commit `*.jks` / `key.properties` (already gitignored).
+### Owner steps (exact)
 
-Fastlane stubs (optional later): copy from [`mobile/release/fastlane/`](../../mobile/release/fastlane/) into `android/fastlane` after native scaffold.
+1. Play Console → create developer account (organization preferred).  
+2. Create apps: **Suqya** (`sa.suqya.customer`) and **Suqya Driver** (`sa.suqya.driver`).  
+3. Create an **upload keystore** locally (never commit):
+
+```bash
+./scripts/android-create-upload-keystore.sh customer
+./scripts/android-create-upload-keystore.sh driver
+# Edit apps/*/android/key.properties passwords; back up ~/suqya-keys/*.jks offline
+```
+
+4. Rebuild release AABs with upload signing + staging dart-defines:
+
+```bash
+cp apps/customer-app/dart_defines.staging.example.json apps/customer-app/dart_defines.staging.json
+cp apps/driver-app/dart_defines.staging.example.json apps/driver-app/dart_defines.staging.json
+# fill API_URL=https://api-production-e8c4a.up.railway.app/v1 and TENANT_ID
+./scripts/flutter-build-release.sh customer android staging
+./scripts/flutter-build-release.sh driver android staging
+```
+
+5. Complete listing stubs from [`store/customer`](../../store/customer/) / [`store/driver`](../../store/driver/) (AR + EN) + **privacy policy URL**.  
+6. Play Console → each app → **Testing → Internal testing** → Create release → upload AAB → review → start rollout.  
+7. Add tester Google accounts / groups; share the internal-track opt-in link (Console → Internal testing → Testers).  
+8. Data safety: location, phone, payment via Moyasar (no card PAN on device). Countries: start **Saudi Arabia**.  
+9. Keep package ids stable after first upload.
+
+### Optional automation (after credentials exist)
+
+```bash
+# Outside git: play-service-account.json with Play Console API access
+export SUPPLY_JSON_KEY=/ABSOLUTE/PATH/play-service-account.json
+# Copy mobile/release/fastlane/* examples into apps/<app>/android/fastlane/
+# Then: bundle exec fastlane android internal
+```
+
+Agent/cloud secret names to provision when re-attempting upload: `PLAY_STORE_JSON_KEY` (file contents or path) **or** `GOOGLE_APPLICATION_CREDENTIALS` pointing at that JSON. Also need the upload `*.jks` + `key.properties` on the build machine (not as chat paste).
+
+Fastlane stubs: [`mobile/release/fastlane/`](../../mobile/release/fastlane/). Keystore example: [`mobile/release/android/key.properties.example`](../../mobile/release/android/key.properties.example).
 
 ---
 
 ## 5. Apple — TestFlight / App Store Connect
 
-1. Apple Developer Program enrollment (organization).  
-2. App Store Connect: create **Suqya** and **Suqya Driver** (bundle ids `sa.suqya.customer` / `sa.suqya.driver`).  
-3. Certificates + provisioning via Xcode or Fastlane `match` (owner-managed — no secrets in repo).  
-4. Archive IPA (`flutter build ipa` or Xcode).  
-5. Upload with Transporter / `xcrun altool` / Fastlane `pilot`.  
-6. TestFlight → internal testers first; external TestFlight needs Beta App Review.  
-7. App Privacy nutrition labels: phone, precise location (driver), payment processing via Moyasar.  
-8. Export compliance: standard HTTPS-only encryption typically qualifies for exemption (confirm with counsel).  
-9. Saudi availability + Arabic primary localization screenshots.
+**Agent audit (2026-11-07):** Host is **Linux** — no Xcode, no `xcodebuild`, no Transporter. No App Store Connect API key (`.p8`), no `ASC_KEY_ID` / `ASC_ISSUER_ID` / `APP_STORE_CONNECT_API_KEY`, no Fastlane `match` / `pilot` session. IPA was **not** built and TestFlight was **not** uploaded. Do not invent TestFlight URLs.
+
+### Owner Mac steps (exact)
+
+Prereqs on a Mac: Xcode (latest stable), CocoaPods, Flutter SDK, Apple Developer Program (org), App Store Connect apps created for `sa.suqya.customer` and `sa.suqya.driver`.
+
+```bash
+# One-time ASC apps + signing (Xcode automatic signing or Fastlane match — owner-managed)
+# Create API key: App Store Connect → Users and Access → Keys → App Store Connect API
+# Save AuthKey_XXXXXXXX.p8 outside git; note Key ID + Issuer ID.
+
+cd /path/to/suqya-platform
+
+cp apps/customer-app/dart_defines.staging.example.json apps/customer-app/dart_defines.staging.json
+cp apps/driver-app/dart_defines.staging.example.json apps/driver-app/dart_defines.staging.json
+# fill API_URL=https://api-production-e8c4a.up.railway.app/v1 and TENANT_ID
+
+# Customer
+cd apps/customer-app
+flutter pub get
+flutter build ipa --release --dart-define-from-file=dart_defines.staging.json
+# IPA: build/ios/ipa/*.ipa
+xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
+  --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+# Or: open -a Transporter  /  Fastlane pilot after copying mobile/release/fastlane examples
+
+# Driver (same pattern)
+cd ../driver-app
+flutter pub get
+flutter build ipa --release --dart-define-from-file=dart_defines.staging.json
+xcrun altool --upload-app --type ios -f build/ios/ipa/*.ipa \
+  --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+```
+
+Then: App Store Connect → each app → TestFlight → add internal testers (same Apple Team). External TestFlight needs Beta App Review.
+
+Also set: App Privacy (phone, precise location for driver, payment via Moyasar); export compliance (HTTPS-only — confirm with counsel); Saudi availability + Arabic screenshots.
 
 Public App Store submission is **Phase 3** of [`docs/testing/launch-plan.md`](../testing/launch-plan.md) — after closed beta, not before Foundation is green on a real host.
 
@@ -312,8 +369,8 @@ Sources already in-repo (do not invent legal advice):
 
 - No Railway production project created (no token).  
 - No Vercel env vars written (CLI logged out).  
-- No Play / App Store binaries uploaded.  
-- No live Maps / Moyasar / SMS credentials.  
+- No Play / App Store binaries uploaded (no Play JSON key / ASC `.p8` in agent env; AABs still debug-signed until owner keystore).  
+- No live Maps / Moyasar / SMS credentials (out of scope for store-upload step).  
 - No public assertion that apps are “in stores.”
 
-When credentials exist, re-run §1–§5 and update Context [`publish-surfaces.md`](https://github.com/hamzaakram007/suqya-platform) / project status with the **real** URLs only.
+When credentials exist, re-run §4–§5 and update Context `publish-surfaces.md` with the **real** internal-track / TestFlight URLs only.

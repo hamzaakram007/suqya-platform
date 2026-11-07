@@ -1,0 +1,9 @@
+# Copy to apps/<customer|driver>-app/android/key.properties (gitignored).
+# Prefer generating via: ./scripts/android-create-upload-keystore.sh <customer|driver>
+# Never commit real passwords or keystore paths that contain secrets.
+
+storePassword=REPLACE_STORE_PASSWORD
+keyPassword=REPLACE_KEY_PASSWORD
+keyAlias=upload
+# Absolute path recommended (outside the repo), e.g. /Users/you/suqya-keys/suqya-customer-upload.jks
+storeFile=/ABSOLUTE/PATH/TO/suqya-APP-upload.jks
