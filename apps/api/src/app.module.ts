@@ -46,6 +46,7 @@ import { SmsModule } from './integrations/sms/sms.module';
     SmsModule,
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 100 },
+      // Named auth bucket; controllers override per-route for OTP/refresh.
       { name: 'auth', ttl: 60000, limit: 10 },
     ]),
     BullModule.forRoot({

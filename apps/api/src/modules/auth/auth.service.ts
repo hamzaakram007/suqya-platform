@@ -2,19 +2,30 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Inject,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../prisma/prisma.module';
 import { UserRole, UserStatus } from '@prisma/client';
 import { SendOtpDto, VerifyOtpDto } from './auth.dto';
 import { JwtPayload } from '../../common/guards/jwt-auth.guard';
 import { SELF_REGISTER_ROLES } from '../../common/constants/roles';
 import { SMS_PROVIDER, SmsProvider } from '../../integrations/sms/sms.types';
+import { generateRefreshToken, hashRefreshToken } from './token-hash';
+
+/** Max OTP send requests per phone+tenant inside the sliding window. */
+const OTP_SEND_LIMIT = 5;
+const OTP_SEND_WINDOW_MS = 10 * 60 * 1000;
+
+/** Max wrong guesses against a single active OTP before it is burned. */
+const OTP_MAX_FAILED_ATTEMPTS = 5;
+
+/** Refresh token lifetime (aligned with security policy). */
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -29,8 +40,9 @@ export class AuthService {
 
   /**
    * OTP mode:
-   * - OTP_MODE=sandbox | development | missing keys → fixed OTP_SANDBOX_CODE (default 123456)
-   * - OTP_MODE=live + production → random 6-digit via SMS provider
+   * - OTP_MODE=sandbox → fixed OTP_SANDBOX_CODE (default 123456)
+   * - OTP_MODE=live → random 6-digit via SMS provider
+   * - OTP_MODE=auto → sandbox outside production / when SMS provider is sandbox
    */
   private resolveOtpCode(): { code: string; mode: 'sandbox' | 'live' } {
     const forced = (this.config.get<string>('OTP_MODE') ?? 'auto').toLowerCase();
@@ -46,7 +58,6 @@ export class AuthService {
         mode: 'live',
       };
     }
-    // auto: sandbox outside production, or when SMS is sandbox provider
     if (nodeEnv !== 'production' || this.sms.name === 'sandbox') {
       return { code: sandboxCode, mode: 'sandbox' };
     }
@@ -56,7 +67,33 @@ export class AuthService {
     };
   }
 
+  /**
+   * Sandbox codes may appear in API responses only when OTP_MODE is explicitly
+   * `sandbox` and OTP_EXPOSE_IN_RESPONSE=true. Never in live mode; never logged.
+   */
+  private shouldExposeSandboxCode(mode: 'sandbox' | 'live'): boolean {
+    if (mode !== 'sandbox') return false;
+    const forced = (this.config.get<string>('OTP_MODE') ?? 'auto').toLowerCase();
+    if (forced !== 'sandbox' && forced !== 'dev') return false;
+    return this.config.get('OTP_EXPOSE_IN_RESPONSE') === 'true';
+  }
+
+  private async assertOtpSendAllowed(phone: string, tenantId: string) {
+    const since = new Date(Date.now() - OTP_SEND_WINDOW_MS);
+    const count = await this.prisma.otpCode.count({
+      where: { phone, tenantId, createdAt: { gt: since } },
+    });
+    if (count >= OTP_SEND_LIMIT) {
+      throw new HttpException(
+        'Too many OTP requests. Try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
   async sendOtp(dto: SendOtpDto, tenantId: string) {
+    await this.assertOtpSendAllowed(dto.phone, tenantId);
+
     const { code, mode } = this.resolveOtpCode();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -65,13 +102,10 @@ export class AuthService {
     });
 
     const sent = await this.sms.sendOtp(dto.phone, code, tenantId);
+    // Never log the OTP code — only provider/mode/phone metadata.
     this.logger.log(
       `OTP sent via ${sent.provider} mode=${mode} phone=${dto.phone} messageId=${sent.messageId}`,
     );
-
-    const exposeExplicit = this.config.get('OTP_EXPOSE_IN_RESPONSE') === 'true';
-    const exposeDefault =
-      mode === 'sandbox' && this.config.get('NODE_ENV') !== 'production';
 
     return {
       message: 'OTP sent successfully',
@@ -79,11 +113,7 @@ export class AuthService {
       provider: sent.provider,
       mode,
       messageId: sent.messageId,
-      // Local/dev E2E: return fixed code. Staging production NODE_ENV needs
-      // OTP_EXPOSE_IN_RESPONSE=true to echo sandboxCode (or read OTP_SANDBOX_CODE).
-      ...(mode === 'sandbox' && (exposeExplicit || exposeDefault)
-        ? { sandboxCode: code }
-        : {}),
+      ...(this.shouldExposeSandboxCode(mode) ? { sandboxCode: code } : {}),
     };
   }
 
@@ -95,11 +125,13 @@ export class AuthService {
         code: dto.code,
         used: false,
         expiresAt: { gt: new Date() },
+        failedAttempts: { lt: OTP_MAX_FAILED_ATTEMPTS },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     if (!otp) {
+      await this.recordFailedOtpAttempt(dto.phone, tenantId);
       throw new UnauthorizedException('Invalid or expired OTP');
     }
 
@@ -152,30 +184,87 @@ export class AuthService {
     };
   }
 
+  /** Increment failedAttempts on the newest active OTP; burn after limit. */
+  private async recordFailedOtpAttempt(phone: string, tenantId: string) {
+    const active = await this.prisma.otpCode.findFirst({
+      where: {
+        phone,
+        tenantId,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!active) return;
+
+    const failedAttempts = active.failedAttempts + 1;
+    await this.prisma.otpCode.update({
+      where: { id: active.id },
+      data: {
+        failedAttempts,
+        ...(failedAttempts >= OTP_MAX_FAILED_ATTEMPTS ? { used: true } : {}),
+      },
+    });
+  }
+
+  /**
+   * Rotate refresh tokens via SHA-256 indexed lookup.
+   * Reuse of a revoked token revokes all sessions for that user.
+   */
   async refreshToken(refreshToken: string) {
-    const sessions = await this.prisma.session.findMany({
-      where: { expiresAt: { gt: new Date() } },
+    const lookupHash = hashRefreshToken(refreshToken);
+    const session = await this.prisma.session.findUnique({
+      where: { refreshTokenHash: lookupHash },
       include: { user: true },
     });
 
-    let validSession = null;
-    for (const session of sessions) {
-      if (await bcrypt.compare(refreshToken, session.refreshTokenHash)) {
-        validSession = session;
-        break;
-      }
-    }
-
-    if (!validSession) {
+    if (!session) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const user = validSession.user;
+    if (session.revokedAt) {
+      await this.prisma.session.updateMany({
+        where: { userId: session.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      this.logger.warn(
+        `Refresh token reuse detected; revoked all sessions for userId=${session.userId}`,
+      );
+      throw new UnauthorizedException('Refresh token reuse detected');
+    }
+
+    if (session.expiresAt <= new Date()) {
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = session.user;
     if (user.status !== 'active') {
       throw new UnauthorizedException('Account inactive');
     }
 
-    return this.generateTokens(user.id, user.tenantId, user.role, user.phone);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.tenantId,
+      user.role,
+      user.phone,
+    );
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: {
+        revokedAt: new Date(),
+        replacedById: tokens.sessionId,
+      },
+    });
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
   private async generateTokens(
@@ -190,17 +279,17 @@ export class AuthService {
       expiresIn: '15m',
     });
 
-    const refreshToken = uuidv4();
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const refreshToken = generateRefreshToken();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
 
-    await this.prisma.session.create({
+    const session = await this.prisma.session.create({
       data: {
         userId,
         refreshTokenHash,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
       },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, sessionId: session.id };
   }
 }

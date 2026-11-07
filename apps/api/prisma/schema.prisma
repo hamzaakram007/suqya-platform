@@ -198,16 +198,21 @@ model UserRoleAssignment {
 }
 
 model Session {
-  id               String   @id @default(uuid())
-  userId           String   @map("user_id")
-  refreshTokenHash String   @map("refresh_token_hash")
-  deviceId         String?  @map("device_id")
-  expiresAt        DateTime @map("expires_at")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  /// SHA-256 hex of the opaque refresh token (indexed unique lookup — not bcrypt).
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  deviceId         String?   @map("device_id")
+  expiresAt        DateTime  @map("expires_at")
+  /// Set when rotated or force-revoked. Presenting a revoked token triggers reuse lockdown.
+  revokedAt        DateTime? @map("revoked_at")
+  replacedById     String?   @map("replaced_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("sessions")
 }
 
@@ -241,15 +246,17 @@ model AuditLog {
 }
 
 model OtpCode {
-  id        String   @id @default(uuid())
-  tenantId  String?  @map("tenant_id")
-  phone     String
-  code      String
-  expiresAt DateTime @map("expires_at")
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  tenantId       String?  @map("tenant_id")
+  phone          String
+  code           String
+  expiresAt      DateTime @map("expires_at")
+  used           Boolean  @default(false)
+  failedAttempts Int      @default(0) @map("failed_attempts")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([phone, code, tenantId])
+  @@index([phone, tenantId, createdAt])
   @@map("otp_codes")
 }
 
