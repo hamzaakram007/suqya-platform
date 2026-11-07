@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:suqya_customer/l10n/app_localizations.dart';
 import 'package:flutter_core/flutter_core.dart';
 import 'core/providers/locale_api_client.dart';
 import 'core/providers/locale_provider.dart';

@@ -1,7 +1,7 @@
 # Publish surfaces — production runbook
 
 **Goal:** Production API (Railway), production Vercel admin/supplier, and first mobile store tracks (Play internal + TestFlight).  
-**Status:** In-repo prep only. **No apps are live in stores.** No production API URL exists yet — do not invent one.  
+**Status:** Native scaffolds + staging Android AAB/APK builds verified. **No apps are live in stores.** No production API URL exists yet — do not invent one. IPA needs macOS.  
 **Prereq:** Staging path green first ([`staging-api.md`](./staging-api.md)) — health, `e2e:foundation`, `db:seed:pilot`, auth smoke.  
 **Related:** Store listing stubs in [`store/`](../../store/README.md) · Flutter release helpers in [`mobile/release/`](../../mobile/release/README.md)
 
@@ -14,7 +14,7 @@
 | Admin | Live shell on Vercel (`admin-web-psi-sepia.vercel.app`) | Point `NEXT_PUBLIC_API_URL` at **production** API |
 | Supplier | Live shell on Vercel (`supplier-web-one.vercel.app`) | Same |
 | API / worker | Scaffold only (`railway.toml`); **no public host** | Separate Railway **production** project (or promote staging → prod) |
-| Customer / Driver Flutter | Dart sources only — **no `android/` / `ios/` folders yet** | `flutter create .` → release builds → Play internal / TestFlight |
+| Customer / Driver Flutter | Native `android/` + `ios/` scaffolds on trunk (ids `sa.suqya.customer` / `sa.suqya.driver`); staging AABs/APKs buildable | Fill Maps key + upload keystore → Play internal / TestFlight (macOS for IPA) |
 
 Agent CLIs: `vercel` and `railway` were **logged out** in the publish agent environment. Owner must authenticate locally or supply tokens.
 
@@ -158,24 +158,25 @@ Post-deploy: open admin/supplier, confirm API calls hit production (Network tab)
 
 ## 3. Flutter — native scaffold + release builds
 
-### 3a. Missing native projects (blocker)
+### 3a. Native projects (done on trunk)
 
-`apps/customer-app` and `apps/driver-app` currently contain Dart/`pubspec.yaml` only. Before any store upload:
-
-```bash
-# Requires Flutter SDK on the machine
-cd apps/customer-app && flutter create . --org sa.suqya --project-name suqya_customer
-cd ../driver-app && flutter create . --org sa.suqya --project-name suqya_driver
-```
-
-Then embed Maps keys per Google’s Flutter docs (AndroidManifest / AppDelegate / Info.plist). Until then, `MAPS_MODE=sandbox` still exercises tracking UX.
-
-Suggested application ids (confirm in Play / ASC before first upload):
+`apps/customer-app` and `apps/driver-app` include checked-in `android/` and `ios/` scaffolds (`flutter create . --org sa.suqya`). Application / bundle ids:
 
 | App | Application id / bundle id |
 |-----|----------------------------|
 | Customer | `sa.suqya.customer` |
 | Driver | `sa.suqya.driver` |
+
+AndroidManifest already has a **placeholder** `com.google.android.geo.API_KEY` (`REPLACE_WITH_RESTRICTED_ANDROID_KEY`). Replace before Play upload when Maps leave sandbox. Until then, `MAPS_MODE=sandbox` still exercises tracking UX.
+
+If regenerating locally:
+
+```bash
+cd apps/customer-app && flutter create . --org sa.suqya --project-name suqya_customer --platforms=android,ios
+cd ../driver-app && flutter create . --org sa.suqya --project-name suqya_driver --platforms=android,ios
+# Re-confirm applicationId / PRODUCT_BUNDLE_IDENTIFIER match the table above.
+```
+
 
 ### 3b. Versioning
 
@@ -219,6 +220,19 @@ flutter build appbundle --release \
 flutter build ipa --release \
   --dart-define-from-file=dart_defines.production.json
 ```
+
+### 3d. iOS / IPA (macOS required)
+
+This Linux CI/agent host has **no Xcode / iOS SDK**. IPA / TestFlight path on a Mac:
+
+```bash
+cd apps/customer-app   # or driver-app
+cp dart_defines.staging.example.json dart_defines.staging.json   # already points at staging API
+flutter build ipa --release --dart-define-from-file=dart_defines.staging.json
+# or: ../../scripts/flutter-build-release.sh customer ios staging
+```
+
+Requires Apple Developer team, bundle ids `sa.suqya.customer` / `sa.suqya.driver`, signing certificates, and App Store Connect apps before upload (step 4/5 — not done here).
 
 ---
 
