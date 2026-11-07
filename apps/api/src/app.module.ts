@@ -37,6 +37,7 @@ import { FaqModule } from './modules/faq/faq.module';
 import { TrackingGateway } from './gateways/tracking.gateway';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LocaleMiddleware } from './common/middleware/locale.middleware';
+import { resolveRedisConnection } from './common/config/redis.config';
 
 @Module({
   imports: [
@@ -46,10 +47,7 @@ import { LocaleMiddleware } from './common/middleware/locale.middleware';
       { name: 'auth', ttl: 60000, limit: 10 },
     ]),
     BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
-      },
+      connection: resolveRedisConnection(),
     }),
     PrismaModule,
     HealthModule,

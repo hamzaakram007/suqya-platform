@@ -158,3 +158,38 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy to EKS production
         run: echo "Deploy to production EKS cluster — manual approval gate"
+
+  # Fast staging path (preferred until EKS is provisioned). See docs/deployment/staging-api.md
+  deploy-staging-railway:
+    needs: [build-api]
+    if: github.ref == 'refs/heads/master' && vars.STAGING_HOST == 'railway'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      - name: Deploy API to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret missing — add it under repo Actions secrets"
+            exit 1
+          fi
+          SERVICE="${{ vars.RAILWAY_API_SERVICE }}"
+          if [ -n "$SERVICE" ]; then
+            railway up --detach --service "$SERVICE"
+          else
+            railway up --detach
+          fi
+      - name: Smoke health
+        env:
+          API_BASE: ${{ vars.STAGING_API_BASE }}
+        run: |
+          if [ -z "$API_BASE" ]; then
+            echo "::warning::STAGING_API_BASE variable not set — skip smoke"
+            exit 0
+          fi
+          bash scripts/smoke-staging.sh
+

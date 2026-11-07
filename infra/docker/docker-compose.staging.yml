@@ -1,0 +1,79 @@
+# Full staging-like stack (API + worker + Postgres/PostGIS + Redis).
+# Usage from repo root:
+#   docker compose -f infra/docker/docker-compose.staging.yml up -d --build
+# Requires a populated apps/api/.env.staging (see apps/api/.env.staging.example).
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: suqya
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-suqya_staging}
+      POSTGRES_DB: suqya
+    ports:
+      - "5433:5432"
+    volumes:
+      - suqya_staging_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U suqya -d suqya"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - suqya_staging_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    env_file:
+      - ../../apps/api/.env.staging
+    environment:
+      DATABASE_URL: postgresql://suqya:${POSTGRES_PASSWORD:-suqya_staging}@postgres:5432/suqya?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: ${RUN_SEED:-true}
+      NODE_ENV: production
+      PORT: "4000"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    env_file:
+      - ../../apps/api/.env.staging
+    environment:
+      DATABASE_URL: postgresql://suqya:${POSTGRES_PASSWORD:-suqya_staging}@postgres:5432/suqya?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      WORKER_MODE: "true"
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  suqya_staging_pg:
+  suqya_staging_redis:
