@@ -13,8 +13,9 @@ RUN npm ci --workspace=@suqya/api --include-workspace-root
 
 COPY apps/api/ ./apps/api/
 
-RUN npm run build -w @suqya/api \
-  && npx prisma generate --schema=apps/api/prisma/schema.prisma
+# Prisma client must exist before nest build (imports from @prisma/client).
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma \
+  && npm run build -w @suqya/api
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
