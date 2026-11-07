@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:suqya_driver/l10n/app_localizations.dart';
 import 'package:flutter_core/flutter_core.dart';
 import 'package:geolocator/geolocator.dart';
 import '../providers/locale_provider.dart';

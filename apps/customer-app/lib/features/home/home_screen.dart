@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_core/flutter_core.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:suqya_customer/l10n/app_localizations.dart';
 import '../../core/l10n/order_status.dart';
 import '../../core/services/customer_api.dart';
 
@@ -46,13 +46,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     try {
       final api = ref.read(customerApiProvider);
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         api.getAddresses(),
         api.getTankSizes(),
         api.getOrderDefaults(),
       ]);
-      final addresses = results[0];
-      final tanks = results[1];
+      final addresses = results[0] as List<dynamic>;
+      final tanks = results[1] as List<dynamic>;
       final defaults = results[2] as Map<String, dynamic>;
 
       String? defaultAddr;

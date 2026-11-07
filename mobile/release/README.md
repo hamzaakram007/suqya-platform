@@ -4,9 +4,11 @@ Helpers for customer + driver store builds. **No credentials. No claim that apps
 
 ## Current repo state
 
-- Dart sources live under `apps/customer-app` and `apps/driver-app`.
-- Native `android/` and `ios/` trees are **not** checked in yet — generate with `flutter create .` (see [`docs/deployment/publish-surfaces.md`](../../docs/deployment/publish-surfaces.md)).
+- Dart sources + checked-in native `android/` and `ios/` under `apps/customer-app` and `apps/driver-app`.
+- Application / bundle ids: `sa.suqya.customer` / `sa.suqya.driver`.
 - Compile-time API/Maps config: `--dart-define-from-file` using the `dart_defines.*.example.json` files beside each app.
+- Staging examples point at live Railway host `https://api-production-e8c4a.up.railway.app/v1` + `default-tenant` (Maps key empty / sandbox).
+- IPA requires macOS + Xcode; Linux agents can produce APK/AAB only.
 
 ## Build
 

@@ -6,7 +6,7 @@ final secureTokenStorageProvider = Provider<SecureTokenStorage>(
 );
 
 class AuthSession {
-  AuthSession({required this.accessToken, this.refreshToken});
+  const AuthSession({required this.accessToken, this.refreshToken});
 
   final String? accessToken;
   final String? refreshToken;

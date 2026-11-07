@@ -1,4 +1,4 @@
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:suqya_customer/l10n/app_localizations.dart';
 
 String localizedOrderStatus(AppLocalizations l10n, String status) {
   final s = status.toLowerCase();

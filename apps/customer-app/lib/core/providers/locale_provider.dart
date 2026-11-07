@@ -20,7 +20,7 @@ class LocaleNotifier extends Notifier<Locale> {
     final prefs = await SharedPreferences.getInstance();
     final code = prefs.getString(_localePrefKey);
     if (code == 'en' || code == 'ar') {
-      state = Locale(code);
+      state = Locale(code!);
     }
   }
 
