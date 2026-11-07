@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.module';
 import { Decimal } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { buildSimpleInvoicePdf } from '../../integrations/invoice/pdf.util';
 
 @Injectable()
 export class ZatcaService {
+  private readonly logger = new Logger(ZatcaService.name);
+
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
@@ -45,7 +48,11 @@ export class ZatcaService {
     });
 
     const sandboxUrl = this.config.get('ZATCA_SANDBOX_URL');
-    let response: Record<string, unknown> = { status: 'submitted', environment: 'sandbox' };
+    let response: Record<string, unknown> = {
+      status: 'submitted',
+      environment: 'sandbox-local',
+      note: 'Local ZATCA TLV QR generated; Fatoora HTTP skipped (ZATCA_SANDBOX_URL unset)',
+    };
 
     if (sandboxUrl) {
       try {
@@ -63,6 +70,7 @@ export class ZatcaService {
         });
         response = (await res.json()) as Record<string, unknown>;
       } catch (err) {
+        this.logger.warn(`ZATCA sandbox submit error: ${String(err)}`);
         response = { status: 'sandbox_error', message: String(err) };
       }
     }
@@ -95,6 +103,8 @@ export class ZatcaService {
 
 @Injectable()
 export class InvoiceService {
+  private readonly logger = new Logger(InvoiceService.name);
+
   constructor(
     private prisma: PrismaService,
     private zatca: ZatcaService,
@@ -139,7 +149,60 @@ export class InvoiceService {
       include: { lines: true },
     });
 
-    await this.zatca.submitToFatoora(invoice.id);
+    const submission = await this.zatca.submitToFatoora(invoice.id);
+    await this.attachPdf(invoice.id, submission.qrCode ?? undefined);
+    return this.prisma.invoice.findUniqueOrThrow({
+      where: { id: invoice.id },
+      include: { lines: true, zatcaSubmission: true },
+    });
+  }
+
+  async attachPdf(invoiceId: string, qrTlv?: string) {
+    const invoice = await this.prisma.invoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+      include: {
+        tenant: true,
+        zatcaSubmission: true,
+        order: { include: { customer: { include: { profile: true } } } },
+      },
+    });
+
+    const qr = qrTlv ?? invoice.zatcaSubmission?.qrCode ?? undefined;
+    const customerName =
+      invoice.order?.customer?.profile?.nameAr ??
+      invoice.order?.customer?.profile?.nameEn ??
+      invoice.order?.customer?.phone ??
+      '';
+
+    const pdf = buildSimpleInvoicePdf({
+      invoiceNumber: invoice.invoiceNumber,
+      sellerName: invoice.tenant.name,
+      customerName,
+      issuedAt: invoice.issuedAt.toISOString(),
+      total: invoice.total.toString(),
+      vatAmount: invoice.vatAmount.toString(),
+      qrTlvBase64: qr,
+    });
+
+    const pdfUrl = `data:application/pdf;base64,${pdf.toString('base64')}`;
+    this.logger.log(`Invoice PDF attached for ${invoice.invoiceNumber} (${pdf.length} bytes)`);
+
+    return this.prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { pdfUrl },
+    });
+  }
+
+  async getPdf(invoiceId: string, tenantId?: string) {
+    const invoice = await this.prisma.invoice.findFirstOrThrow({
+      where: tenantId ? { id: invoiceId, tenantId } : { id: invoiceId },
+      include: { zatcaSubmission: true },
+    });
+
+    if (!invoice.pdfUrl) {
+      await this.attachPdf(invoiceId, invoice.zatcaSubmission?.qrCode ?? undefined);
+      return this.prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+    }
     return invoice;
   }
 
@@ -150,6 +213,7 @@ export class InvoiceService {
     });
     return this.prisma.invoice.findMany({
       where: { orderId: { in: orders.map((o) => o.id) } },
+      include: { zatcaSubmission: true },
       orderBy: { issuedAt: 'desc' },
     });
   }

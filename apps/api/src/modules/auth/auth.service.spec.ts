@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.module';
 import { UserRole } from '@prisma/client';
+import { SMS_PROVIDER } from '../../integrations/sms/sms.types';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -24,18 +25,46 @@ describe('AuthService', () => {
     },
   };
 
+  const sms = {
+    name: 'sandbox' as const,
+    sendOtp: jest.fn().mockResolvedValue({
+      provider: 'sandbox',
+      messageId: 'sandbox-1',
+      debugCode: '123456',
+    }),
+    sendSms: jest.fn(),
+  };
+
+  const configGet = jest.fn((key: string) => {
+    if (key === 'NODE_ENV') return 'development';
+    if (key === 'OTP_MODE') return 'sandbox';
+    if (key === 'OTP_SANDBOX_CODE') return '123456';
+    if (key === 'OTP_EXPOSE_IN_RESPONSE') return 'true';
+    return undefined;
+  });
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { sign: jest.fn().mockReturnValue('token') } },
-        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue('development') } },
+        { provide: ConfigService, useValue: { get: configGet } },
+        { provide: SMS_PROVIDER, useValue: sms },
       ],
     }).compile();
 
     service = module.get(AuthService);
     jest.clearAllMocks();
+  });
+
+  it('sends sandbox OTP without console-only stub', async () => {
+    prisma.otpCode.create.mockResolvedValue({});
+    const result = await service.sendOtp({ phone: '+966501234567' }, 'default-tenant');
+    expect(sms.sendOtp).toHaveBeenCalled();
+    expect(result.provider).toBe('sandbox');
+    expect(result.sandboxCode).toBe('123456');
+    expect(result.mode).toBe('sandbox');
   });
 
   it('rejects admin self-registration', async () => {

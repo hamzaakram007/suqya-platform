@@ -8,10 +8,12 @@ import {
   UseGuards,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -22,8 +24,9 @@ import { DispatchService } from '../dispatch/dispatch.service';
 import { OrderStateMachine } from '../order/order-state-machine';
 import { OrderCompletionService } from '../order/order-completion.service';
 import { FraudDetectionService } from '../security/security.service';
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { OrderStatus } from '@prisma/client';
 
 class UpdateStatusDto {
   @ApiProperty() @IsBoolean() isOnline!: boolean;
@@ -32,6 +35,12 @@ class UpdateStatusDto {
 class UpdateLocationDto {
   @ApiProperty() @IsNumber() latitude!: number;
   @ApiProperty() @IsNumber() longitude!: number;
+}
+
+class JobStatusDto {
+  @ApiProperty({ enum: ['filling', 'in_transit'] })
+  @IsIn(['filling', 'in_transit'])
+  status!: 'filling' | 'in_transit';
 }
 
 class PodDto {
@@ -52,6 +61,7 @@ export class DriverController {
     private stateMachine: OrderStateMachine,
     private orderCompletion: OrderCompletionService,
     private fraud: FraudDetectionService,
+    private config: ConfigService,
     @InjectQueue('dispatch') private dispatchQueue: Queue,
   ) {}
 
@@ -124,6 +134,26 @@ export class DriverController {
     return this.dispatch.rejectJob(driver.id, orderId);
   }
 
+  @Post('jobs/:id/status')
+  @ApiOperation({ summary: 'Advance job status (filling → in_transit)' })
+  async updateJobStatus(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') orderId: string,
+    @Body() dto: JobStatusDto,
+  ) {
+    const driver = await this.prisma.driver.findUniqueOrThrow({
+      where: { userId: user.sub },
+    });
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, driverId: driver.id },
+    });
+    if (!order) throw new ForbiddenException('Not assigned to this order');
+
+    const target = dto.status as OrderStatus;
+    await this.stateMachine.transition(this.prisma, orderId, target, driver.id);
+    return { orderId, status: target };
+  }
+
   @Post('jobs/:id/pod')
   @ApiOperation({ summary: 'Submit proof of delivery' })
   async submitPod(
@@ -140,11 +170,37 @@ export class DriverController {
     });
     if (!order) throw new ForbiddenException('Not assigned to this order');
 
+    if (order.status !== 'in_transit' && order.status !== 'filling') {
+      throw new BadRequestException(
+        `POD requires filling or in_transit status (current: ${order.status})`,
+      );
+    }
+
+    // Advance filling → in_transit if driver skipped an explicit status call.
+    if (order.status === 'filling') {
+      await this.stateMachine.transition(this.prisma, orderId, 'in_transit', driver.id);
+    }
+
+    const sandboxPod =
+      this.config.get('POD_MODE') === 'sandbox' ||
+      this.config.get('NODE_ENV') !== 'production';
+
+    const photoUrl =
+      dto.photoUrl ??
+      (sandboxPod ? `sandbox://pod/photo/${orderId}` : undefined);
+    const signatureUrl =
+      dto.signatureUrl ??
+      (sandboxPod ? `sandbox://pod/signature/${orderId}` : undefined);
+
+    if (!photoUrl && !signatureUrl && !dto.otp) {
+      throw new BadRequestException('Provide photoUrl, signatureUrl, or otp for POD');
+    }
+
     await this.prisma.proofOfDelivery.create({
       data: {
         orderId,
-        photoUrl: dto.photoUrl,
-        signatureUrl: dto.signatureUrl,
+        photoUrl,
+        signatureUrl,
         otpVerified: !!dto.otp,
       },
     });
@@ -157,7 +213,12 @@ export class DriverController {
       await this.orderCompletion.onOrderCompleted(orderId, user.tenantId);
     }
 
-    return { message: 'Proof of delivery submitted' };
+    return {
+      message: 'Proof of delivery submitted',
+      photoUrl,
+      signatureUrl,
+      mode: sandboxPod ? 'sandbox' : 'live',
+    };
   }
 
   @Get('earnings')

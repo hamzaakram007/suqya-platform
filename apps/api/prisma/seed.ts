@@ -142,8 +142,33 @@ async function main() {
           latitude: 24.7136,
           longitude: 46.6753,
         },
-        update: { isOnline: true },
+        update: {
+          isOnline: true,
+          latitude: 24.7136,
+          longitude: 46.6753,
+          status: 'active',
+        },
       });
+    }
+
+    if (u.role === 'customer') {
+      const existing = await prisma.address.findFirst({
+        where: { userId: user.id, label: 'Demo Home' },
+      });
+      if (!existing) {
+        await prisma.address.create({
+          data: {
+            userId: user.id,
+            label: 'Demo Home',
+            buildingNumber: '1001',
+            street: 'Olaya St',
+            cityId: city.id,
+            latitude: 24.7200,
+            longitude: 46.6800,
+            isDefault: true,
+          },
+        });
+      }
     }
 
     console.log(`Dev ${u.role}: ${u.phone}`);

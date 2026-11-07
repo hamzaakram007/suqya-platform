@@ -62,7 +62,24 @@ export class DispatchService {
       throw new NotFoundException('Order address missing coordinates');
     }
 
-    await this.stateMachine.transition(this.prisma, orderId, 'dispatching');
+    if (order.status === 'driver_offered' && order.driverId) {
+      return {
+        orderId,
+        driverId: order.driverId,
+        message: 'Already offered',
+        timeoutSeconds: 30,
+      };
+    }
+
+    // Idempotent: supplier accept may already have moved to dispatching.
+    if (order.status === 'pending') {
+      await this.stateMachine.transition(this.prisma, orderId, 'supplier_review');
+      await this.stateMachine.transition(this.prisma, orderId, 'dispatching');
+    } else if (order.status === 'supplier_review') {
+      await this.stateMachine.transition(this.prisma, orderId, 'dispatching');
+    } else if (order.status !== 'dispatching') {
+      await this.stateMachine.transition(this.prisma, orderId, 'dispatching');
+    }
 
     const candidates = await this.findNearbyDrivers(
       tenantId,
