@@ -1,0 +1,6 @@
+{
+  "API_URL": "https://REPLACE-STAGING-HOST.up.railway.app/v1",
+  "TENANT_ID": "default-tenant",
+  "GOOGLE_MAPS_API_KEY": "",
+  "MAPS_MODE": "sandbox"
+}

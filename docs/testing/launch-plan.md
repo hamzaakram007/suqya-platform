@@ -44,10 +44,12 @@ Phone book, sample order numbers (`PILOT-0001` / `PILOT-0002`), and the signed d
 - ZATCA sandbox invoicing
 
 ### Phase 3: Public Launch (Week 7-8)
-- App Store + Google Play submission
+- App Store + Google Play submission — prep runbook in [`docs/deployment/publish-surfaces.md`](../deployment/publish-surfaces.md); listing stubs under `store/`
+- Prefer Play **internal** + TestFlight before public production tracks
 - Marketing in Riyadh (social, supplier QR codes)
 - 24/7 ops support team
 - Monitoring via Datadog/Grafana
+- Owner blockers: Railway prod, Vercel prod API URL, Apple/Google accounts, Maps, Moyasar live, SMS
 
 ### Success Criteria
 

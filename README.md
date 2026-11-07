@@ -71,6 +71,16 @@ docker compose -f infra/docker/docker-compose.staging.yml up -d --build
 
 Wire clients: set `NEXT_PUBLIC_API_URL=https://<host>/v1` on Vercel admin + supplier; Flutter `--dart-define=API_URL=https://<host>/v1`.
 
+## Publish surfaces (production / stores)
+
+See **[docs/deployment/publish-surfaces.md](docs/deployment/publish-surfaces.md)** for the production Railway + Vercel + Play internal / TestFlight runbook.
+
+- Store listing stubs: [`store/`](store/README.md)
+- Flutter release helpers: [`mobile/release/`](mobile/release/README.md)
+- Build (after `flutter create` + filled defines): `npm run mobile:build -- customer android production`
+
+**No store binaries are published from CI yet.** Owner credentials (Railway, Vercel, Play, Apple, Maps, Moyasar, SMS) are required.
+
 ```bash
 # Install dependencies
 npm install
@@ -90,6 +100,7 @@ npm run dev:admin
 
 - [Pilot ops (Phase 1 dry-run)](docs/testing/pilot-ops.md)
 - [Staging API](docs/deployment/staging-api.md)
+- [Publish surfaces](docs/deployment/publish-surfaces.md)
 - [Business Analysis](docs/business/)
 - [System Architecture](docs/architecture/system-design.md)
 - [Database ERD](docs/database/erd.md)
