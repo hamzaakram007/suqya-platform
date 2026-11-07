@@ -4,8 +4,12 @@ CREATE SEQUENCE IF NOT EXISTS order_number_seq START 1;
 -- PostGIS extension (requires superuser on RDS — run via migration job in K8s)
 -- CREATE EXTENSION IF NOT EXISTS postgis;
 
--- OtpCode tenant scoping
-ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+-- OtpCode tenant scoping (skip on empty DBs where core tables come from prisma db push / later bootstrap)
+DO $$ BEGIN
+  IF to_regclass('public.otp_codes') IS NOT NULL THEN
+    ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+  END IF;
+END $$;
 
 -- Enterprise tables (idempotent for db push environments)
 CREATE TABLE IF NOT EXISTS subscription_plans (
