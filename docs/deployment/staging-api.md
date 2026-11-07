@@ -54,9 +54,12 @@ railway variables set NODE_ENV=production
 railway variables set JWT_SECRET="$(openssl rand -base64 48)"
 railway variables set CORS_ORIGINS="https://admin-web-psi-sepia.vercel.app,https://supplier-web-one.vercel.app"
 railway variables set PAYMENT_CALLBACK_URL="https://admin-web-psi-sepia.vercel.app/payment/callback"
-# Optional sandbox:
+# Optional sandbox / live vendor keys — full flip checklist:
+# docs/deployment/vendor-keys-staging.md
+# Moyasar webhook (staging): https://api-production-e8c4a.up.railway.app/v1/payments/webhook
 # railway variables set MOYASAR_PUBLISHABLE_KEY=pk_test_...
 # railway variables set MOYASAR_SECRET_KEY=sk_test_...
+# OTP_MODE=live only when UNIFONIC_APP_SID is set
 
 # 6) Public URL
 railway domain        # note https://<service>.up.railway.app
