@@ -151,4 +151,12 @@ When `AWS_DEPLOY_ROLE_ARN` + ECR/EKS exist, existing `.github/workflows/ci.yml` 
 | Auth | `POST /v1/auth/otp/send` + `otp/verify` | 200; token when OTP known |
 | Orders | `POST /v1/orders` with Bearer + `X-Tenant-Id` | After auth (Foundation slice) |
 
-**Status:** Config ready in-repo; live URL pending Railway auth.
+**Status (2026-11-07):** Staging **LIVE** on Railway.
+
+| Item | Value |
+|------|-------|
+| HTTPS host | `https://api-production-e8c4a.up.railway.app` |
+| Client `API_BASE` | `https://api-production-e8c4a.up.railway.app/v1` |
+| Project | `suqya-staging` (Postgres + Redis + `api` + `worker`) |
+| Smoke | `GET /v1/health` + OTP sandbox via `scripts/smoke-staging.sh` — OK |
+| Next | Set Vercel `NEXT_PUBLIC_API_URL` / Flutter dart-defines to the host above (do not invent URLs) |
