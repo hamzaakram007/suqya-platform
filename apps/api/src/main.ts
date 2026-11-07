@@ -4,8 +4,12 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { resolveJwtSecrets } from './common/config/jwt-secret';
 
 async function bootstrap() {
+  // Fail-fast before binding the port if staging/prod JWT material is missing/weak.
+  resolveJwtSecrets();
+
   const app = await NestFactory.create(AppModule);
 
   app.use(helmet());

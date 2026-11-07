@@ -5,8 +5,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.module';
+import { resolveJwtSecrets } from '../config/jwt-secret';
+import { verifyAccessToken } from '../auth/verify-access-token';
 
 export interface JwtPayload {
   sub: string;
@@ -20,6 +23,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private prisma: PrismaService,
+    private config: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -31,7 +35,14 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwtService.verify<JwtPayload>(token);
+      const secrets = resolveJwtSecrets({
+        JWT_SECRET: this.config.get<string>('JWT_SECRET'),
+        JWT_SECRET_PREVIOUS: this.config.get<string>('JWT_SECRET_PREVIOUS'),
+        NODE_ENV: this.config.get<string>('NODE_ENV'),
+        APP_ENV: this.config.get<string>('APP_ENV'),
+        REQUIRE_STRONG_JWT: this.config.get<string>('REQUIRE_STRONG_JWT'),
+      });
+      const payload = verifyAccessToken(this.jwtService, token, secrets);
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
         select: { id: true, status: true, tenantId: true },

@@ -6,6 +6,8 @@ import { SmsProvider, SmsSendResult } from './sms.types';
 /**
  * Honest local/staging SMS: persists nothing beyond OTP rows, never calls a network.
  * Fixed codes via OTP_SANDBOX_CODE (default 123456) when AuthService uses sandbox mode.
+ * Never logs the OTP code. debugCode is returned only when OTP_MODE=sandbox and
+ * OTP_EXPOSE_IN_RESPONSE=true.
  */
 @Injectable()
 export class SandboxSmsProvider implements SmsProvider {
@@ -19,8 +21,12 @@ export class SandboxSmsProvider implements SmsProvider {
     this.logger.log(
       `[sandbox-sms] OTP queued for ${phone}@${tenantId} messageId=${messageId}`,
     );
-    // Never print the code in logs — E2E uses OTP_SANDBOX_CODE / OTP_EXPOSE_IN_RESPONSE.
-    const expose = this.config.get('OTP_EXPOSE_IN_RESPONSE') === 'true';
+
+    const mode = (this.config.get<string>('OTP_MODE') ?? 'auto').toLowerCase();
+    const expose =
+      (mode === 'sandbox' || mode === 'dev') &&
+      this.config.get('OTP_EXPOSE_IN_RESPONSE') === 'true';
+
     return {
       provider: 'sandbox',
       messageId,

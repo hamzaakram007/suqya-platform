@@ -17,9 +17,10 @@
 
 | Variable | Purpose |
 |----------|---------|
-| `OTP_MODE` | `auto` / `sandbox` / `live` |
+| `OTP_MODE` | `auto` / `sandbox` / `live` — use `sandbox` for E2E |
 | `OTP_SANDBOX_CODE` | Fixed code (default `123456`) |
-| `OTP_EXPOSE_IN_RESPONSE` | Include `sandboxCode` in send OTP response |
+| `OTP_EXPOSE_IN_RESPONSE` | Include `sandboxCode` only when `OTP_MODE=sandbox` (never logs codes) |
+| `JWT_SECRET` | Required strong secret in staging/prod — see `docs/security/auth-hardening.md` |
 | `SMS_PROVIDER` | `auto` / `sandbox` / `unifonic` |
 | `PAYMENT_MODE` | `auto` / `sandbox` / `moyasar` |
 | `POD_MODE` | `sandbox` synthesizes `sandbox://pod/...` media |
@@ -52,3 +53,4 @@ Unit coverage for the path contract: `npm run test -w @suqya/api` (includes `fou
 - ZATCA Fatoora HTTP: `ZATCA_SANDBOX_URL` + `ZATCA_API_TOKEN` (TLV QR already works offline)
 - Push: FCM HTTP sender still not wired beyond sandbox bookkeeping
 - Maps / live tracking: see `docs/testing/maps-tracking.md` (roadmap step 3)
+- Auth hardening: see `docs/security/auth-hardening.md` (roadmap step 4)

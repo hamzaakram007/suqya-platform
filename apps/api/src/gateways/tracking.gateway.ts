@@ -13,6 +13,8 @@ import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.module';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
 import { TrackingService } from '../modules/tracking/tracking.service';
+import { resolveJwtSecrets } from '../common/config/jwt-secret';
+import { verifyAccessToken } from '../common/auth/verify-access-token';
 
 @WebSocketGateway({ cors: true, namespace: '/tracking' })
 export class TrackingGateway
@@ -46,9 +48,14 @@ export class TrackingGateway
         return;
       }
 
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: this.config.get('JWT_SECRET', 'suqya-dev-secret-change-in-production'),
+      const secrets = resolveJwtSecrets({
+        JWT_SECRET: this.config.get<string>('JWT_SECRET'),
+        JWT_SECRET_PREVIOUS: this.config.get<string>('JWT_SECRET_PREVIOUS'),
+        NODE_ENV: this.config.get<string>('NODE_ENV'),
+        APP_ENV: this.config.get<string>('APP_ENV'),
+        REQUIRE_STRONG_JWT: this.config.get<string>('REQUIRE_STRONG_JWT'),
       });
+      const payload = verifyAccessToken(this.jwtService, token, secrets);
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
