@@ -80,13 +80,15 @@ docker compose -f infra/docker/docker-compose.yml up -d
 
 # Align apps/api/.env with .env.example ports, then:
 npm run db:migrate
-npm run db:seed
+npm run db:seed          # minimal demo users
+npm run db:seed:pilot    # Phase 1 pack: 2 suppliers, 10 drivers, sample orders
 npm run dev:api
 npm run dev:admin
 ```
 
 ## Documentation
 
+- [Pilot ops (Phase 1 dry-run)](docs/testing/pilot-ops.md)
 - [Staging API](docs/deployment/staging-api.md)
 - [Business Analysis](docs/business/)
 - [System Architecture](docs/architecture/system-design.md)

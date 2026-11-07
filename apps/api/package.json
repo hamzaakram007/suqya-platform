@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "ts-node prisma/seed.ts",
+    "db:seed": "ts-node -r dotenv/config prisma/seed.ts",
+    "db:seed:pilot": "ts-node -r dotenv/config prisma/seed-pilot.ts",
     "db:push": "prisma db push"
   },
   "prisma": {
@@ -37,6 +38,7 @@
     "bullmq": "^5.25.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "dotenv": "^18.0.9",
     "helmet": "^7.1.0",
     "ioredis": "^5.4.0",
     "passport": "^0.7.0",
