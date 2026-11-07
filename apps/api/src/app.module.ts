@@ -38,10 +38,12 @@ import { TrackingGateway } from './gateways/tracking.gateway';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LocaleMiddleware } from './common/middleware/locale.middleware';
 import { resolveRedisConnection } from './common/config/redis.config';
+import { SmsModule } from './integrations/sms/sms.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    SmsModule,
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60000, limit: 100 },
       { name: 'auth', ttl: 60000, limit: 10 },

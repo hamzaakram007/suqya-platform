@@ -57,6 +57,7 @@ export class DocumentTemplateService {
       include: {
         lines: true,
         tenant: true,
+        zatcaSubmission: true,
         order: {
           include: {
             customer: { include: { profile: true } },
@@ -96,6 +97,8 @@ export class DocumentTemplateService {
           ? copy.ar
           : null;
 
+    const qrTlv = invoice.zatcaSubmission?.qrCode ?? null;
+
     return {
       layout: effectiveLayout,
       dir: effectiveLayout === 'en' ? 'ltr' : 'rtl',
@@ -105,7 +108,17 @@ export class DocumentTemplateService {
         issuedAt: invoice.issuedAt.toISOString(),
         tenantNameAr: invoice.tenant.nameAr ?? invoice.tenant.name,
         tenantNameEn: invoice.tenant.nameEn ?? invoice.tenant.name,
+        pdfUrl: invoice.pdfUrl,
+        zatcaStatus: invoice.zatcaStatus,
       },
+      qr: qrTlv
+        ? {
+            format: 'zatca-tlv-base64',
+            value: qrTlv,
+            /** Data-URI that QR libraries can encode; SVG left to clients. */
+            dataUriHint: `zatca-qr://${qrTlv}`,
+          }
+        : null,
       labels: labels ?? { ar: copy.ar, en: copy.en },
       customerName,
       lines: invoice.lines.map((l) => ({
@@ -134,6 +147,7 @@ export class DocumentTemplateService {
         subtotal: Number(invoice.subtotal),
         vat: Number(invoice.vatAmount),
         total: Number(invoice.total),
+        qrTlv,
       }),
     };
   }
@@ -150,8 +164,12 @@ export class DocumentTemplateService {
     subtotal: number;
     vat: number;
     total: number;
+    qrTlv?: string | null;
   }): string {
     const date = p.issuedAt.toISOString().slice(0, 10);
+    const qrBlock = p.qrTlv
+      ? `<p class="qr"><strong>ZATCA QR (TLV Base64)</strong><br/><code style="word-break:break-all;font-size:10px">${p.qrTlv}</code></p>`
+      : '';
     if (p.layout === 'bilingual') {
       return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${p.invoiceNumber}</title>
 <style>body{font-family:Tahoma,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}.row{display:flex;gap:24px}.col{flex:1}</style></head>
@@ -163,7 +181,7 @@ export class DocumentTemplateService {
 <p>${copy.ar.subtotal}: ${p.subtotal.toFixed(2)}</p>
 <p>${copy.ar.vat}: ${p.vat.toFixed(2)}</p>
 <p><strong>${copy.ar.total}: ${p.total.toFixed(2)}</strong></p>
-<p>${copy.ar.thankYou}</p></div>
+${qrBlock}<p>${copy.ar.thankYou}</p></div>
 <div class="col" dir="ltr"><h1>${copy.en.invoice}</h1><p>${copy.en.invoiceNumber}: ${p.invoiceNumber}</p>
 <p>${copy.en.date}: ${date}</p><p>${p.tenantEn}</p><p>${copy.en.customer}: ${p.customerName}</p>
 <table><tr><th>${copy.en.description}</th><th>${copy.en.amount}</th></tr>
@@ -171,7 +189,7 @@ export class DocumentTemplateService {
 <p>${copy.en.subtotal}: ${p.subtotal.toFixed(2)}</p>
 <p>${copy.en.vat}: ${p.vat.toFixed(2)}</p>
 <p><strong>${copy.en.total}: ${p.total.toFixed(2)}</strong></p>
-<p>${copy.en.thankYou}</p></div>
+${qrBlock}<p>${copy.en.thankYou}</p></div>
 </div></body></html>`;
     }
     const L = p.layout === 'en' ? copy.en : copy.ar;
@@ -187,6 +205,6 @@ export class DocumentTemplateService {
 <p>${L.subtotal}: ${p.subtotal.toFixed(2)}</p>
 <p>${L.vat}: ${p.vat.toFixed(2)}</p>
 <p><strong>${L.total}: ${p.total.toFixed(2)}</strong></p>
-<p>${L.thankYou}</p></body></html>`;
+${qrBlock}<p>${L.thankYou}</p></body></html>`;
   }
 }

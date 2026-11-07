@@ -1,16 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.module';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { AppLocale, DEFAULT_LOCALE } from '../../common/locale/locale.types';
+import { AppLocale } from '../../common/locale/locale.types';
 import { normalizeLocale } from '../../common/locale/locale.util';
+import { NotificationDeliveryService } from '../../integrations/notifications/delivery.service';
 
 @Injectable()
 export class NotificationService {
   constructor(
     private prisma: PrismaService,
+    private config: ConfigService,
     @InjectQueue('notifications') private notificationQueue: Queue,
+    @Optional() private delivery?: NotificationDeliveryService,
   ) {}
+
+  /** When true (or NODE_ENV=test), deliver via sandbox/live provider without waiting for worker. */
+  private inlineDelivery(): boolean {
+    return (
+      this.config.get('NOTIFICATION_INLINE') === 'true' ||
+      this.config.get('NODE_ENV') === 'test'
+    );
+  }
 
   async resolveLocale(userId: string): Promise<AppLocale> {
     const profile = await this.prisma.userProfile.findUnique({
@@ -69,13 +81,23 @@ export class NotificationService {
       },
     });
 
-    await this.notificationQueue.add('dispatch', {
-      notificationId: notification.id,
-      userId,
-      channel,
-      title,
-      body,
-    });
+    if (this.inlineDelivery() && this.delivery) {
+      await this.delivery.deliver({
+        notificationId: notification.id,
+        userId,
+        channel,
+        title,
+        body,
+      });
+    } else {
+      await this.notificationQueue.add('dispatch', {
+        notificationId: notification.id,
+        userId,
+        channel,
+        title,
+        body,
+      });
+    }
 
     return notification;
   }
@@ -99,10 +121,19 @@ export class NotificationService {
       locale === 'en'
         ? `Suqya: Your order ${data.orderNumber} is complete`
         : `سقيا: تم إكمال طلبك ${data.orderNumber}`;
-    await this.notificationQueue.add('sms', {
-      phone: data.customerPhone,
-      body: smsBody,
-    });
+
+    if (this.inlineDelivery() && this.delivery) {
+      await this.delivery.deliver({
+        phone: data.customerPhone,
+        channel: 'sms',
+        body: smsBody,
+      });
+    } else {
+      await this.notificationQueue.add('sms', {
+        phone: data.customerPhone,
+        body: smsBody,
+      });
+    }
   }
 
   /** Resolve display copy from template when eventKey is set. */

@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,30 +14,77 @@ import { UserRole, UserStatus } from '@prisma/client';
 import { SendOtpDto, VerifyOtpDto } from './auth.dto';
 import { JwtPayload } from '../../common/guards/jwt-auth.guard';
 import { SELF_REGISTER_ROLES } from '../../common/constants/roles';
+import { SMS_PROVIDER, SmsProvider } from '../../integrations/sms/sms.types';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    @Inject(SMS_PROVIDER) private sms: SmsProvider,
   ) {}
 
-  async sendOtp(dto: SendOtpDto, tenantId: string) {
-    const code =
-      this.config.get('NODE_ENV') === 'production'
-        ? Math.floor(100000 + Math.random() * 900000).toString()
-        : '123456';
+  /**
+   * OTP mode:
+   * - OTP_MODE=sandbox | development | missing keys → fixed OTP_SANDBOX_CODE (default 123456)
+   * - OTP_MODE=live + production → random 6-digit via SMS provider
+   */
+  private resolveOtpCode(): { code: string; mode: 'sandbox' | 'live' } {
+    const forced = (this.config.get<string>('OTP_MODE') ?? 'auto').toLowerCase();
+    const nodeEnv = this.config.get<string>('NODE_ENV') ?? 'development';
+    const sandboxCode = this.config.get<string>('OTP_SANDBOX_CODE') ?? '123456';
 
+    if (forced === 'sandbox' || forced === 'dev') {
+      return { code: sandboxCode, mode: 'sandbox' };
+    }
+    if (forced === 'live') {
+      return {
+        code: Math.floor(100000 + Math.random() * 900000).toString(),
+        mode: 'live',
+      };
+    }
+    // auto: sandbox outside production, or when SMS is sandbox provider
+    if (nodeEnv !== 'production' || this.sms.name === 'sandbox') {
+      return { code: sandboxCode, mode: 'sandbox' };
+    }
+    return {
+      code: Math.floor(100000 + Math.random() * 900000).toString(),
+      mode: 'live',
+    };
+  }
+
+  async sendOtp(dto: SendOtpDto, tenantId: string) {
+    const { code, mode } = this.resolveOtpCode();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
     await this.prisma.otpCode.create({
       data: { phone: dto.phone, code, expiresAt, tenantId },
     });
 
-    console.log(`[OTP] ${dto.phone}@${tenantId}: ${code}`);
+    const sent = await this.sms.sendOtp(dto.phone, code, tenantId);
+    this.logger.log(
+      `OTP sent via ${sent.provider} mode=${mode} phone=${dto.phone} messageId=${sent.messageId}`,
+    );
 
-    return { message: 'OTP sent successfully', expiresIn: 300 };
+    const exposeExplicit = this.config.get('OTP_EXPOSE_IN_RESPONSE') === 'true';
+    const exposeDefault =
+      mode === 'sandbox' && this.config.get('NODE_ENV') !== 'production';
+
+    return {
+      message: 'OTP sent successfully',
+      expiresIn: 300,
+      provider: sent.provider,
+      mode,
+      messageId: sent.messageId,
+      // Local/dev E2E: return fixed code. Staging production NODE_ENV needs
+      // OTP_EXPOSE_IN_RESPONSE=true to echo sandboxCode (or read OTP_SANDBOX_CODE).
+      ...(mode === 'sandbox' && (exposeExplicit || exposeDefault)
+        ? { sandboxCode: code }
+        : {}),
+    };
   }
 
   async verifyOtp(dto: VerifyOtpDto, tenantId: string) {

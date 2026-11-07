@@ -61,7 +61,7 @@ export class SupplierController {
 
     await this.prisma.order.update({
       where: { id: orderId },
-      data: { supplierId: supplier.id, status: 'dispatching' },
+      data: { supplierId: supplier.id },
     });
 
     return this.dispatch.assignDriver(user.tenantId, orderId);

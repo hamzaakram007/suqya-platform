@@ -19,6 +19,7 @@
     "db:generate": "npm run db:generate -w @suqya/api",
     "db:seed": "npm run db:seed -w @suqya/api",
     "smoke:staging": "bash scripts/smoke-staging.sh",
+    "e2e:foundation": "bash scripts/e2e-foundation.sh",
     "setup:local": "powershell -ExecutionPolicy Bypass -File scripts/local-setup.ps1",
     "render:k8s": "powershell -ExecutionPolicy Bypass -File scripts/render-k8s.ps1"
   },

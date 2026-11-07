@@ -1,23 +1,30 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.module';
 import { Decimal } from '@prisma/client/runtime/library';
 import { OrderCompletionService } from '../order/order-completion.service';
+import { MoyasarClient } from '../../integrations/payments/moyasar.client';
+import { Prisma } from '@prisma/client';
 
 export interface PaymentIntentResult {
   transactionId: string;
   clientSecret?: string;
   redirectUrl?: string;
   status: string;
+  mode?: string;
+  provider?: string;
 }
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
     private orderCompletion: OrderCompletionService,
+    private moyasar: MoyasarClient,
   ) {}
 
   async createIntent(
@@ -46,33 +53,56 @@ export class PaymentService {
     });
 
     if (method === 'cash') {
-      return { transactionId: transaction.id, status: 'pending' };
+      return {
+        transactionId: transaction.id,
+        status: 'pending',
+        mode: 'cash',
+        provider: 'cash',
+      };
     }
 
-    const moyasarKey = this.config.get('MOYASAR_SECRET_KEY');
-    const gatewayRef = `moy_${transaction.id.slice(0, 8)}`;
+    const callbackUrl =
+      this.config.get<string>('PAYMENT_CALLBACK_URL') ??
+      'http://localhost:3000/payment/callback';
+
+    const created = await this.moyasar.createPayment(
+      {
+        amountHalalas: amount.mul(100).toNumber(),
+        currency: 'SAR',
+        description: `Order ${order.orderNumber}`,
+        callbackUrl,
+        metadata: {
+          orderId,
+          transactionId: transaction.id,
+          tenantId,
+        },
+      },
+      transaction.id,
+    );
 
     await this.prisma.transaction.update({
       where: { id: transaction.id },
       data: {
-        gatewayRef,
+        gatewayRef: created.gatewayRef,
         metadata: {
-          provider: 'moyasar',
+          provider: created.mode === 'sandbox' ? 'moyasar-sandbox' : 'moyasar',
           publishableKey: this.config.get('MOYASAR_PUBLISHABLE_KEY'),
-        },
+          mode: created.mode,
+        } as Prisma.InputJsonValue,
       },
     });
 
-    const callbackUrl = this.config.get('PAYMENT_CALLBACK_URL');
-    const redirectUrl = moyasarKey
-      ? `https://api.moyasar.com/v1/payments?amount=${amount.mul(100).toNumber()}&currency=SAR&description=Order+${order.orderNumber}&callback_url=${encodeURIComponent(callbackUrl ?? '')}&source[type]=creditcard`
-      : `${callbackUrl}?txn=${transaction.id}`;
+    this.logger.log(
+      `Payment intent ${transaction.id} mode=${created.mode} ref=${created.gatewayRef}`,
+    );
 
     return {
       transactionId: transaction.id,
-      clientSecret: gatewayRef,
-      redirectUrl,
+      clientSecret: created.clientSecret,
+      redirectUrl: created.redirectUrl,
       status: 'pending',
+      mode: created.mode,
+      provider: created.mode === 'sandbox' ? 'moyasar-sandbox' : 'moyasar',
     };
   }
 
@@ -82,16 +112,41 @@ export class PaymentService {
       include: { order: true },
     });
 
+    if (transaction.status === 'completed') {
+      return { transactionId, status: 'completed', idempotent: true };
+    }
+
+    if (transaction.gatewayRef) {
+      const paid = await this.moyasar.verifyPaid(transaction.gatewayRef);
+      if (!paid && transaction.method !== 'cash') {
+        throw new UnauthorizedException('Payment not confirmed by gateway');
+      }
+    }
+
     await this.prisma.transaction.update({
       where: { id: transactionId },
       data: { status: 'completed' },
     });
 
     if (transaction.orderId && transaction.order) {
-      await this.prisma.order.update({
-        where: { id: transaction.orderId },
-        data: { status: 'completed', completedAt: new Date() },
-      });
+      if (transaction.order.status === 'payment_pending') {
+        await this.prisma.order.update({
+          where: { id: transaction.orderId },
+          data: { status: 'completed', completedAt: new Date() },
+        });
+        await this.prisma.orderStatusHistory.create({
+          data: {
+            orderId: transaction.orderId,
+            status: 'completed',
+            notes: 'payment_capture',
+          },
+        });
+      } else if (transaction.order.status !== 'completed') {
+        await this.prisma.order.update({
+          where: { id: transaction.orderId },
+          data: { status: 'completed', completedAt: new Date() },
+        });
+      }
 
       await this.orderCompletion.onOrderCompleted(
         transaction.orderId,
@@ -134,7 +189,9 @@ export class PaymentService {
 
   verifyWebhookSignature(payload: string, signature: string): boolean {
     const secret = this.config.get('MOYASAR_WEBHOOK_SECRET');
-    if (!secret) return this.config.get('NODE_ENV') !== 'production';
+    if (!secret || String(secret).includes('placeholder')) {
+      return this.config.get('NODE_ENV') !== 'production';
+    }
 
     const expected = createHmac('sha256', secret).update(payload).digest('hex');
     try {
