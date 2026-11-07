@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_core/flutter_core.dart';
 
+/// Legacy alias — prefer [buildSuqyaTheme] from flutter_core.
 class AppTheme {
-  static const Color primary = Color(0xFF0A6E6E);
-
-  static ThemeData get light => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: primary, primary: primary),
-        appBarTheme: const AppBarTheme(backgroundColor: primary, foregroundColor: Colors.white),
-      );
+  static ThemeData get light => buildSuqyaTheme();
 }

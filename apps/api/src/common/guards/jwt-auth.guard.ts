@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { PrismaService } from '../../prisma/prisma.module';
 
 export interface JwtPayload {
   sub: string;
@@ -16,9 +17,12 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private prisma: PrismaService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractToken(request);
 
@@ -28,9 +32,23 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify<JwtPayload>(token);
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, status: true, tenantId: true },
+      });
+
+      if (!user || user.status !== 'active') {
+        throw new UnauthorizedException('Account inactive or not found');
+      }
+
+      if (user.tenantId !== payload.tenantId) {
+        throw new UnauthorizedException('Invalid tenant context');
+      }
+
       (request as Request & { user: JwtPayload }).user = payload;
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

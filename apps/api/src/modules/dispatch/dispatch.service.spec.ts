@@ -22,6 +22,7 @@ describe('DispatchService', () => {
         DispatchService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: OrderStateMachine, useValue: mockStateMachine },
+        { provide: 'BullQueue_dispatch', useValue: { add: jest.fn() } },
       ],
     }).compile();
 

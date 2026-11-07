@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -65,6 +65,28 @@ export class SupplierController {
     });
 
     return this.dispatch.assignDriver(user.tenantId, orderId);
+  }
+
+  @Get('orders')
+  @ApiOperation({ summary: 'List supplier orders' })
+  async orders(
+    @CurrentUser() user: JwtPayload,
+    @Query('status') status?: string,
+  ) {
+    const supplier = await this.prisma.supplier.findUniqueOrThrow({
+      where: { userId: user.sub },
+    });
+    return this.prisma.order.findMany({
+      where: {
+        supplierId: supplier.id,
+        ...(status ? { status: status as never } : {}),
+      },
+      include: {
+        customer: { include: { profile: true } },
+        driver: { include: { user: { include: { profile: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   @Get('fleet')

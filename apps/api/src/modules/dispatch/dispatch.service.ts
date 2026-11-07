@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.module';
 import { OrderStateMachine } from '../order/order-state-machine';
 import { DriverCandidate } from './dispatch.types';
@@ -8,6 +10,7 @@ export class DispatchService {
   constructor(
     private prisma: PrismaService,
     private stateMachine: OrderStateMachine,
+    @InjectQueue('dispatch') private dispatchQueue: Queue,
   ) {}
 
   async findNearbyDrivers(
@@ -88,6 +91,12 @@ export class DispatchService {
     });
 
     await this.stateMachine.transition(this.prisma, orderId, 'driver_offered');
+
+    await this.dispatchQueue.add(
+      'timeout-reassign',
+      { orderId, tenantId },
+      { delay: 30000, jobId: `timeout-${orderId}` },
+    );
 
     return {
       orderId,

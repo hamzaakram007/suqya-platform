@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: suqya-api-pdb
+  namespace: suqya
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: suqya-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: suqya-worker-pdb
+  namespace: suqya
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: suqya-worker

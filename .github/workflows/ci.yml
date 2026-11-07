@@ -8,6 +8,9 @@ on:
 
 env:
   NODE_VERSION: '20'
+  AWS_REGION: me-south-1
+  ECR_REPOSITORY: suqya/api
+  EKS_CLUSTER_STAGING: suqya-staging
 
 jobs:
   lint-and-test:
@@ -20,7 +23,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint --if-present
-      - run: npm run test -w @suqya/api
+      - run: npm run test -w @suqya/api -- --coverage
+      - name: Coverage gate (placeholder)
+        run: |
+          echo "::warning::Coverage gate placeholder — enforce minimum threshold once baseline is established"
+          # TODO: replace with threshold check, e.g.:
+          # COVERAGE=$(node -e "const r=require('./apps/api/coverage/coverage-summary.json');console.log(r.total.lines.pct)")
+          # test "$COVERAGE" -ge 70 || exit 1
 
   build-api:
     needs: lint-and-test
@@ -33,8 +42,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @suqya/api
-      - name: Build Docker image
-        run: docker build -t suqya/api:${{ github.sha }} -f infra/docker/Dockerfile.api .
 
   build-admin:
     needs: lint-and-test
@@ -48,22 +55,104 @@ jobs:
       - run: npm ci
       - run: npm run build -w @suqya/admin-web
 
+  build-supplier-web:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @suqya/supplier-web
+
+  docker-build-push:
+    needs: [build-api]
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest \
+                       -f infra/docker/Dockerfile.api .
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:latest
+
   deploy-staging:
-    needs: [build-api, build-admin]
+    needs: [build-api, build-admin, build-supplier-web, docker-build-push]
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     environment: staging
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig for EKS staging
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_STAGING }} --region ${{ env.AWS_REGION }}
+
+      - name: Run database migration
+        run: kubectl apply -f infra/k8s/migration-job.yaml && kubectl wait --for=condition=complete job/suqya-migrate -n suqya --timeout=300s
+
       - name: Deploy to EKS staging
-        run: echo "Deploy to staging EKS cluster"
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          export IMAGE="$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
+          kubectl apply -f infra/k8s/namespace.yaml
+          kubectl apply -f infra/k8s/external-secrets.yaml
+          kubectl apply -f infra/k8s/api-deployment.yaml
+          kubectl apply -f infra/k8s/worker-deployment.yaml
+          kubectl apply -f infra/k8s/hpa.yaml
+          kubectl apply -f infra/k8s/pdb.yaml
+          kubectl apply -f infra/k8s/network-policy.yaml
+          kubectl apply -f infra/k8s/ingress.yaml
+          kubectl set image deployment/suqya-api api=$IMAGE -n suqya
+          kubectl set image deployment/suqya-worker worker=$IMAGE -n suqya
+          kubectl rollout status deployment/suqya-api -n suqya --timeout=300s
+          kubectl rollout status deployment/suqya-worker -n suqya --timeout=300s
 
   deploy-production:
-    needs: [build-api, build-admin]
+    needs: [build-api, build-admin, build-supplier-web, docker-build-push]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to EKS production
-        run: echo "Deploy to production EKS cluster"
+        run: echo "Deploy to production EKS cluster — manual approval gate"

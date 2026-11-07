@@ -1,108 +1,138 @@
 terraform {
   required_version = ">= 1.5"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+  }
+
+  backend "s3" {
+    # Configure per environment:
+    # bucket = "suqya-terraform-state"
+    # key    = "staging/terraform.tfstate"
+    # region = "me-south-1"
+    # dynamodb_table = "suqya-terraform-locks"
   }
 }
 
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = local.common_tags
+  }
 }
 
-variable "aws_region" {
-  default = "me-south-1"
-}
-
-variable "environment" {
-  default = "staging"
-}
-
-variable "project_name" {
-  default = "suqya"
-}
-
+# ---------------------------------------------------------------------------
 # VPC
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+# ---------------------------------------------------------------------------
+module "vpc" {
+  source = "./modules/vpc"
 
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-vpc"
-    Environment = var.environment
-  }
+  name_prefix = local.name_prefix
+  vpc_cidr    = var.vpc_cidr
+  aws_region  = var.aws_region
+  tags        = local.common_tags
 }
 
-# RDS PostgreSQL
-resource "aws_db_instance" "postgres" {
-  identifier           = "${var.project_name}-${var.environment}"
-  engine               = "postgres"
-  engine_version       = "16"
-  instance_class       = "db.t3.medium"
-  allocated_storage    = 100
-  storage_encrypted    = true
-  db_name              = "suqya"
-  username             = "suqya"
-  password             = var.db_password
-  multi_az             = var.environment == "production"
-  skip_final_snapshot  = var.environment != "production"
-  backup_retention_period = 35
+# ---------------------------------------------------------------------------
+# EKS
+# ---------------------------------------------------------------------------
+module "eks" {
+  source = "./modules/eks"
 
-  tags = {
-    Name        = "${var.project_name}-db"
-    Environment = var.environment
-  }
+  name_prefix         = local.name_prefix
+  vpc_id              = module.vpc.vpc_id
+  private_subnet_ids  = module.vpc.private_subnet_ids
+  node_instance_types = local.eks_node_instance_types
+  desired_size        = local.eks_desired_size
+  min_size            = local.eks_min_size
+  max_size            = local.eks_max_size
+  tags                = local.common_tags
 }
 
-variable "db_password" {
-  type      = string
-  sensitive = true
+# ---------------------------------------------------------------------------
+# RDS — PostgreSQL 16 (PostGIS enabled via migration CREATE EXTENSION)
+# ---------------------------------------------------------------------------
+module "rds" {
+  source = "./modules/rds"
+
+  name_prefix                = local.name_prefix
+  vpc_id                     = module.vpc.vpc_id
+  private_subnet_ids         = module.vpc.private_subnet_ids
+  allowed_security_group_ids = [module.eks.cluster_security_group_id]
+  db_password                = var.db_password
+  instance_class             = local.db_instance_class
+  allocated_storage          = local.db_allocated_storage
+  multi_az                   = local.is_production
+  skip_final_snapshot        = !local.is_production
+  backup_retention_period    = local.is_production ? 35 : 7
+  tags                       = local.common_tags
 }
 
-# ElastiCache Redis
-resource "aws_elasticache_cluster" "redis" {
-  cluster_id           = "${var.project_name}-${var.environment}"
-  engine               = "redis"
-  node_type            = "cache.t3.micro"
-  num_cache_nodes      = 1
-  parameter_group_name = "default.redis7"
-  port                 = 6379
+# ---------------------------------------------------------------------------
+# ElastiCache — Redis 7 for BullMQ
+# ---------------------------------------------------------------------------
+module "elasticache" {
+  source = "./modules/elasticache"
 
-  tags = {
-    Environment = var.environment
-  }
+  name_prefix                = local.name_prefix
+  vpc_id                     = module.vpc.vpc_id
+  private_subnet_ids         = module.vpc.private_subnet_ids
+  allowed_security_group_ids = [module.eks.cluster_security_group_id]
+  node_type                  = local.redis_node_type
+  num_cache_nodes            = local.is_production ? 2 : 1
+  tags                       = local.common_tags
 }
 
-# S3 for documents/POD
-resource "aws_s3_bucket" "assets" {
-  bucket = "${var.project_name}-${var.environment}-assets"
+# ---------------------------------------------------------------------------
+# S3 — documents / POD assets
+# ---------------------------------------------------------------------------
+module "s3" {
+  source = "./modules/s3"
 
-  tags = {
-    Environment = var.environment
-  }
+  name_prefix       = local.name_prefix
+  enable_versioning = local.is_production
+  tags              = local.common_tags
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
-  bucket = aws_s3_bucket.assets.id
+# ---------------------------------------------------------------------------
+# ALB — public ingress for API
+# ---------------------------------------------------------------------------
+module "alb" {
+  source = "./modules/alb"
 
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
+  name_prefix       = local.name_prefix
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+  certificate_arn   = var.certificate_arn
+  tags              = local.common_tags
 }
 
-output "db_endpoint" {
-  value = aws_db_instance.postgres.endpoint
-}
+# ---------------------------------------------------------------------------
+# Secrets Manager — app + database credentials
+# ---------------------------------------------------------------------------
+module "secrets" {
+  source = "./modules/secrets"
 
-output "redis_endpoint" {
-  value = aws_elasticache_cluster.redis.cache_nodes[0].address
-}
-
-output "s3_bucket" {
-  value = aws_s3_bucket.assets.bucket
+  name_prefix  = local.name_prefix
+  db_host      = module.rds.address
+  db_port      = module.rds.port
+  db_name      = module.rds.db_name
+  db_username  = "suqya"
+  db_password  = var.db_password
+  redis_host   = module.elasticache.primary_endpoint
+  redis_port   = module.elasticache.port
+  s3_bucket    = module.s3.bucket_name
+  tags         = local.common_tags
 }

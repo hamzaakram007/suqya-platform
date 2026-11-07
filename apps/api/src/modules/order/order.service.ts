@@ -1,12 +1,15 @@
 import {
   Injectable,
-  NotFoundException,
   BadRequestException,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.module';
-import { OrderStateMachine } from './order-state-machine';
+import { JwtPayload } from '../../common/guards/jwt-auth.guard';
 import { CreateOrderDto } from './order.dto';
+import { OrderStateMachine } from './order-state-machine';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { CreditService } from '../credit/credit.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 const VAT_RATE = 0.15;
@@ -17,6 +20,7 @@ export class OrderService {
     private prisma: PrismaService,
     private stateMachine: OrderStateMachine,
     private dispatchService: DispatchService,
+    private creditService: CreditService,
   ) {}
 
   async create(tenantId: string, customerId: string, dto: CreateOrderDto) {
@@ -32,46 +36,50 @@ export class OrderService {
     if (!address) throw new NotFoundException('Address not found');
     if (!tankSize) throw new NotFoundException('Tank size not found');
 
-    if (dto.paymentType === 'credit') {
-      const credit = await this.prisma.creditAccount.findUnique({
-        where: { customerId },
-      });
-      if (!credit || credit.status !== 'approved') {
-        throw new BadRequestException('Credit account not approved');
-      }
-    }
-
     const subtotal = await this.calculatePrice(tenantId, tankSize.id, address);
     const vatAmount = subtotal.mul(VAT_RATE);
     const totalAmount = subtotal.add(vatAmount);
 
-    const orderCount = await this.prisma.order.count({ where: { tenantId } });
-    const orderNumber = `SQ-${String(orderCount + 1).padStart(6, '0')}`;
+    if (dto.paymentType === 'credit') {
+      await this.creditService.assertCreditAvailable(customerId, totalAmount);
+    }
 
-    const order = await this.prisma.order.create({
-      data: {
-        tenantId,
-        orderNumber,
-        customerId,
-        addressId: dto.addressId,
-        tankSizeId: dto.tankSizeId,
-        supplierId: dto.supplierId,
-        paymentType: dto.paymentType,
-        slaType: dto.slaType ?? 'standard',
-        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-        notes: dto.notes,
-        subtotal,
-        vatAmount,
-        totalAmount,
-        status: 'pending',
-        statusHistory: {
-          create: { status: 'pending', actorId: customerId },
+    const orderNumber = await this.generateOrderNumber(tenantId);
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          tenantId,
+          orderNumber,
+          customerId,
+          addressId: dto.addressId,
+          tankSizeId: dto.tankSizeId,
+          supplierId: dto.supplierId,
+          paymentType: dto.paymentType,
+          slaType: dto.slaType ?? 'standard',
+          scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+          notes: dto.notes,
+          subtotal,
+          vatAmount,
+          totalAmount,
+          status: 'pending',
+          statusHistory: {
+            create: { status: 'pending', actorId: customerId },
+          },
         },
-      },
-      include: {
-        tankSize: true,
-        address: true,
-      },
+        include: { tankSize: true, address: true },
+      });
+
+      if (dto.paymentType === 'credit') {
+        await this.creditService.chargeOnOrder(
+          customerId,
+          created.id,
+          totalAmount,
+          tx,
+        );
+      }
+
+      return created;
     });
 
     await this.stateMachine.transition(this.prisma, order.id, 'supplier_review');
@@ -88,19 +96,24 @@ export class OrderService {
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
         where: { customerId },
-        include: { tankSize: true, address: true, driver: { include: { user: { include: { profile: true } } } } },
+        include: {
+          tankSize: true,
+          address: true,
+          driver: { include: { user: { include: { profile: true } } } },
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
       this.prisma.order.count({ where: { customerId } }),
     ]);
-    return { data: orders, total, page, limit };
+    return { data: orders, meta: { page, limit, total, hasNext: skip + limit < total } };
   }
 
-  async findById(orderId: string, userId: string) {
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, customerId: userId },
+  async findById(orderId: string, user: JwtPayload) {
+    const order = await this.findOrderWithAccess(orderId, user);
+    return this.prisma.order.findFirstOrThrow({
+      where: { id: order.id },
       include: {
         tankSize: true,
         address: true,
@@ -110,11 +123,11 @@ export class OrderService {
         supplier: true,
       },
     });
-    if (!order) throw new NotFoundException('Order not found');
-    return order;
   }
 
-  async track(orderId: string) {
+  async track(orderId: string, user: JwtPayload) {
+    await this.findOrderWithAccess(orderId, user);
+
     const order = await this.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
       include: {
@@ -145,26 +158,73 @@ export class OrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const cancellable: string[] = ['pending', 'supplier_review', 'dispatching', 'driver_offered'];
+    const cancellable: string[] = [
+      'pending',
+      'supplier_review',
+      'dispatching',
+      'driver_offered',
+    ];
     if (!cancellable.includes(order.status)) {
       throw new BadRequestException('Order cannot be cancelled at this stage');
     }
 
-    await this.stateMachine.transition(this.prisma, order.id, 'cancelled', userId, reason);
+    await this.stateMachine.transition(
+      this.prisma,
+      order.id,
+      'cancelled',
+      userId,
+      reason,
+    );
+
+    if (order.paymentType === 'credit') {
+      await this.creditService.reverseCharge(order.customerId, orderId);
+    }
+
     return { message: 'Order cancelled' };
+  }
+
+  private async findOrderWithAccess(orderId: string, user: JwtPayload) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, tenantId: user.tenantId },
+      include: { driver: true, supplier: true },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+
+    const isCustomer = order.customerId === user.sub;
+    const isDriver = order.driver?.userId === user.sub;
+    const isSupplier = order.supplier?.userId === user.sub;
+    const isStaff = ['admin', 'dispatcher'].includes(user.role);
+
+    if (!isCustomer && !isDriver && !isSupplier && !isStaff) {
+      throw new ForbiddenException('Access denied to this order');
+    }
+
+    return order;
+  }
+
+  private async generateOrderNumber(tenantId: string): Promise<string> {
+    const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
+      SELECT nextval('order_number_seq') as nextval
+    `.catch(async () => {
+      const count = await this.prisma.order.count({ where: { tenantId } });
+      return [{ nextval: BigInt(count + 1) }];
+    });
+
+    const seq = Number(result[0].nextval);
+    return `SQ-${String(seq).padStart(6, '0')}`;
   }
 
   private async calculatePrice(
     tenantId: string,
-    tankSizeId: string,
-    address: { cityId: string | null },
+    _tankSizeId: string,
+    _address: { cityId: string | null },
   ): Promise<Decimal> {
     const rule = await this.prisma.pricingRule.findFirst({
       where: { tenantId, isActive: true },
       orderBy: { basePrice: 'asc' },
     });
 
-    const basePrice = rule?.basePrice ?? new Decimal(150);
-    return basePrice;
+    return rule?.basePrice ?? new Decimal(150);
   }
 }

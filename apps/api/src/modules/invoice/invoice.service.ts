@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.module';
 import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ZatcaService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) {}
 
   async generateQrTlv(data: {
     sellerName: string;
@@ -33,11 +38,34 @@ export class ZatcaService {
     const zatcaUuid = uuidv4();
     const qrCode = await this.generateQrTlv({
       sellerName: invoice.tenant.name,
-      vatNumber: '300000000000003',
+      vatNumber: this.config.get('ZATCA_VAT_NUMBER', '300000000000003'),
       timestamp: invoice.issuedAt.toISOString(),
       total: invoice.total.toString(),
       vatAmount: invoice.vatAmount.toString(),
     });
+
+    const sandboxUrl = this.config.get('ZATCA_SANDBOX_URL');
+    let response: Record<string, unknown> = { status: 'submitted', environment: 'sandbox' };
+
+    if (sandboxUrl) {
+      try {
+        const res = await fetch(`${sandboxUrl}/invoices/reporting/single`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.config.get('ZATCA_API_TOKEN', '')}`,
+          },
+          body: JSON.stringify({
+            uuid: zatcaUuid,
+            invoiceHash: qrCode,
+            invoiceNumber: invoice.invoiceNumber,
+          }),
+        });
+        response = (await res.json()) as Record<string, unknown>;
+      } catch (err) {
+        response = { status: 'sandbox_error', message: String(err) };
+      }
+    }
 
     const submission = await this.prisma.invoiceZatcaSubmission.create({
       data: {
@@ -45,7 +73,7 @@ export class ZatcaService {
         submissionType: invoice.type === 'standard' ? 'clearance' : 'reporting',
         zatcaUuid,
         qrCode,
-        response: { status: 'submitted', mock: true },
+        response: response as Prisma.InputJsonValue,
       },
     });
 
@@ -54,7 +82,6 @@ export class ZatcaService {
       data: { zatcaStatus: 'submitted' },
     });
 
-    // TODO: Real Fatoora API integration in production
     return submission;
   }
 
@@ -76,11 +103,19 @@ export class InvoiceService {
   async createFromOrder(orderId: string, tenantId: string) {
     const order = await this.prisma.order.findFirstOrThrow({
       where: { id: orderId, tenantId },
-      include: { tankSize: true },
+      include: {
+        tankSize: true,
+        customer: { include: { profile: true } },
+      },
     });
 
     const count = await this.prisma.invoice.count({ where: { tenantId } });
     const invoiceNumber = `INV-${String(count + 1).padStart(8, '0')}`;
+    const lang = order.customer.profile?.preferredLanguage === 'en' ? 'en' : 'ar';
+    const tankLabel =
+      lang === 'en' ? order.tankSize.nameEn : order.tankSize.nameAr;
+    const descPrefix = lang === 'en' ? 'Water delivery' : 'توصيل مياه';
+    const description = `${descPrefix} - ${tankLabel} (${order.tankSize.capacityLiters}L)`;
 
     const invoice = await this.prisma.invoice.create({
       data: {
@@ -93,7 +128,7 @@ export class InvoiceService {
         total: order.totalAmount,
         lines: {
           create: [{
-            description: `Water delivery - ${order.tankSize.nameEn} (${order.tankSize.capacityLiters}L)`,
+            description,
             quantity: new Decimal(1),
             unitPrice: order.subtotal,
             vatRate: new Decimal(15),

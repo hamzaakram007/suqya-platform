@@ -25,6 +25,7 @@ model Tenant {
   id              String       @id @default(uuid())
   name            String
   nameAr          String?      @map("name_ar")
+  nameEn          String?      @map("name_en")
   mode            TenantMode   @default(marketplace)
   parentTenantId  String?      @map("parent_tenant_id")
   status          TenantStatus @default(active)
@@ -52,6 +53,7 @@ model Tenant {
   supportTickets SupportTicket[]
   auditLogs    AuditLog[]
   settlements  Settlement[]
+  faqs         Faq[]
 
   @@map("tenants")
 }
@@ -72,6 +74,8 @@ model Branch {
   id        String   @id @default(uuid())
   tenantId  String   @map("tenant_id")
   name      String
+  nameAr    String?  @map("name_ar")
+  nameEn    String?  @map("name_en")
   cityId    String?  @map("city_id")
   latitude  Float?
   longitude Float?
@@ -238,13 +242,14 @@ model AuditLog {
 
 model OtpCode {
   id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id")
   phone     String
   code      String
   expiresAt DateTime @map("expires_at")
   used      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([phone, code])
+  @@index([phone, code, tenantId])
   @@map("otp_codes")
 }
 
@@ -301,10 +306,12 @@ model District {
 }
 
 model DeliveryZone {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
+  id       String  @id @default(uuid())
+  tenantId String  @map("tenant_id")
   name     String
-  cityId   String @map("city_id")
+  nameAr   String? @map("name_ar")
+  nameEn   String? @map("name_en")
+  cityId   String  @map("city_id")
   boundary Json?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -593,6 +600,10 @@ model Coupon {
   id            String    @id @default(uuid())
   tenantId      String    @map("tenant_id")
   code          String
+  titleAr       String?   @map("title_ar")
+  titleEn       String?   @map("title_en")
+  descriptionAr String?   @map("description_ar")
+  descriptionEn String?   @map("description_en")
   discountType  String    @map("discount_type")
   discountValue Decimal   @map("discount_value") @db.Decimal(12, 2)
   maxUses       Int?      @map("max_uses")
@@ -998,6 +1009,8 @@ model Notification {
   channel   String
   title     String
   body      String
+  /// Template event key — display title/body resolved from NotificationTemplate by locale at read time
+  eventKey  String?   @map("event_key")
   data      Json?
   readAt    DateTime? @map("read_at")
   createdAt DateTime  @default(now()) @map("created_at")
@@ -1006,6 +1019,25 @@ model Notification {
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("notifications")
+}
+
+model Faq {
+  id         String   @id @default(uuid())
+  tenantId   String?  @map("tenant_id")
+  questionAr String   @map("question_ar")
+  questionEn String   @map("question_en")
+  answerAr   String   @map("answer_ar")
+  answerEn   String   @map("answer_en")
+  category   String   @default("general")
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, category, sortOrder])
+  @@map("faqs")
 }
 
 model NotificationTemplate {
@@ -1088,4 +1120,99 @@ model LoyaltyPoint {
 
   @@index([userId])
   @@map("loyalty_points")
+}
+
+// ─── Enterprise Extensions (Phase 14) ───────────────────────
+
+model SubscriptionPlan {
+  id           String  @id @default(uuid())
+  tenantId     String  @map("tenant_id")
+  name         String
+  nameAr       String? @map("name_ar")
+  nameEn       String? @map("name_en")
+  priceMonthly Decimal @map("price_monthly") @db.Decimal(12, 2)
+  deliveriesPerMonth Int @map("deliveries_per_month")
+  isActive     Boolean @default(true) @map("is_active")
+
+  subscriptions UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  planId           String   @map("plan_id")
+  status           String   @default("active")
+  currentPeriodEnd DateTime @map("current_period_end")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId, status])
+  @@map("user_subscriptions")
+}
+
+model Referral {
+  id            String   @id @default(uuid())
+  referrerId    String   @map("referrer_id")
+  referredPhone String   @map("referred_phone")
+  status        String   @default("pending")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("referrals")
+}
+
+model FuelExpense {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  supplierId String   @map("supplier_id")
+  truckId    String?  @map("truck_id")
+  liters     Decimal  @db.Decimal(10, 2)
+  cost       Decimal  @db.Decimal(12, 2)
+  odometer   Int?
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  @@map("fuel_expenses")
+}
+
+model InventoryItem {
+  id         String  @id @default(uuid())
+  tenantId   String  @map("tenant_id")
+  supplierId String  @map("supplier_id")
+  name       String
+  sku        String
+  quantity   Int     @default(0)
+  unit       String  @default("pcs")
+
+  @@unique([tenantId, supplierId, sku])
+  @@map("inventory_items")
+}
+
+model Employee {
+  id         String  @id @default(uuid())
+  tenantId   String  @map("tenant_id")
+  supplierId String  @map("supplier_id")
+  name       String
+  role       String
+  phone      String?
+  nationalId String? @map("national_id")
+  isActive   Boolean @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("employees")
+}
+
+model FraudAlert {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  alertType  String   @map("alert_type")
+  message    String
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, resolved])
+  @@map("fraud_alerts")
 }
