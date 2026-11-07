@@ -17,6 +17,18 @@
 
 Admin accounts require mandatory 2FA (`TwoFactorService` in `modules/security/`). Contact the platform engineering lead to provision your account.
 
+### Pilot / Internal Alpha (sandbox OTP)
+
+For **Phase 1 dry-runs** against a seeded API (local Compose or staging), use OTP login instead of email/password:
+
+| Field | Value |
+|-------|-------|
+| Tenant | `default-tenant` |
+| Admin phone | `+966501234567` |
+| OTP | `123456` when `OTP_MODE=sandbox` |
+
+Seed first: `npm run db:seed:pilot`. Full checklist (2 suppliers / 10 drivers / sample orders): [`../testing/pilot-ops.md`](../testing/pilot-ops.md).
+
 ### Dashboard Overview
 
 The operations dashboard shows real-time KPIs:
@@ -282,8 +294,23 @@ Audit logs cannot be modified or deleted.
 | ZATCA compliance | compliance@suqya.sa |
 | Security incident | security@suqya.sa (immediate) |
 
+## Phase 1 pilot dry-run (operator)
+
+Before inviting internal testers, walk this once on the environment you intend to use:
+
+1. **Seed** — `npm run db:seed:pilot` (see [`../testing/pilot-ops.md`](../testing/pilot-ops.md)).
+2. **Suppliers** — confirm Al-Nour + Najd are **active** with CR/VAT and verified sandbox documents.
+3. **Drivers** — confirm 10 drivers (5 each), ≥6 online on the live map / drivers list.
+4. **Orders** — open `PILOT-0001` / `PILOT-0002` (`supplier_review`); have Supplier 1 accept and dispatch.
+5. **Intervene** — practice **Manual Assign** if auto-dispatch times out (see Order Management above).
+6. **Log** — fill the dry-run log table in `pilot-ops.md` (date, operator, local vs staging).
+
+This matches launch-plan Phase 1 (2 suppliers, 10 drivers). Store publishing is **out of scope**.
+
 ## Related Documentation
 
+- [Pilot ops pack](../testing/pilot-ops.md)
+- [Launch plan](../testing/launch-plan.md)
 - [Operations Manual](../operations/ops-manual.md)
 - [Troubleshooting](../operations/troubleshooting.md)
 - [Security Policy](../security/security-policy.md)

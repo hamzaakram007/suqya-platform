@@ -23,7 +23,18 @@
 - 2 suppliers onboarded (CR/VAT verified)
 - 10 drivers with test accounts
 - 20 internal testers (customer app)
-- Staging environment on EKS
+- Staging environment on EKS *(or Railway-first staging — see `docs/deployment/staging-api.md`; live host still optional for local dry-run)*
+
+#### Phase 1 operator dry-run (no tribal knowledge)
+
+Use the **pilot ops pack** so Internal Alpha can be walked on local Compose today and on staging when `DATABASE_URL` exists:
+
+1. Seed: `npm run db:seed:pilot` (idempotent — 2 suppliers, 10 drivers, 5 customers, 2 sample orders).
+2. Follow the checklist in [`pilot-ops.md`](./pilot-ops.md) (health → supplier CR/VAT → fleet online → accept/dispatch → POD/pay sandbox).
+3. Preserve E2E phones so `npm run e2e:foundation` still validates the Foundation path after pilot seed.
+4. Do **not** start store publishing in Phase 1.
+
+Phone book, sample order numbers (`PILOT-0001` / `PILOT-0002`), and the signed dry-run log template live in [`pilot-ops.md`](./pilot-ops.md).
 
 ### Phase 2: Closed Beta (Week 3-6)
 - 5 suppliers in Riyadh
