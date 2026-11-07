@@ -4,6 +4,10 @@ build/
 .next/
 .env
 .env.local
+.env.staging
+.env*
+!.env.example
+!.env.staging.example
 *.log
 .DS_Store
 coverage/
@@ -19,4 +23,4 @@ coverage/
 .packages
 pubspec.lock
 .vercel
-.env*
+*.tsbuildinfo

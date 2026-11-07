@@ -1,0 +1,19 @@
+# Suqya API staging/production on Railway.
+# Create one Railway project with Postgres + Redis plugins, then link this repo.
+# Docs: docs/deployment/staging-api.md
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "infra/docker/Dockerfile.api"
+
+[deploy]
+startCommand = "/entrypoint.sh"
+releaseCommand = "npx prisma migrate deploy --schema=prisma/schema.prisma"
+healthcheckPath = "/v1/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+[env]
+NODE_ENV = "production"
+PORT = "4000"

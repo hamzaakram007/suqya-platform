@@ -54,29 +54,40 @@ npx vercel deploy --prod --yes --local-config vercel.supplier.json
 
 > **Note:** The NestJS API requires a persistent server (Docker/Kubernetes/Railway). It is not deployed to Vercel. Connect the web apps to your API via `NEXT_PUBLIC_API_URL` in Vercel environment variables.
 
+## Staging API (Railway-first)
+
+See **[docs/deployment/staging-api.md](docs/deployment/staging-api.md)** for the full runbook.
+
+```bash
+# Option A — Railway (recommended staging)
+railway login && railway up
+# set JWT_SECRET + CORS_ORIGINS; Postgres/Redis via Railway plugins
+API_BASE=https://<host>/v1 npm run smoke:staging
+
+# Option B — Docker Compose staging stack
+cp apps/api/.env.staging.example apps/api/.env.staging
+docker compose -f infra/docker/docker-compose.staging.yml up -d --build
+```
+
+Wire clients: set `NEXT_PUBLIC_API_URL=https://<host>/v1` on Vercel admin + supplier; Flutter `--dart-define=API_URL=https://<host>/v1`.
 
 ```bash
 # Install dependencies
 npm install
 
-# Start local infrastructure
+# Start local infrastructure (Postgres :5433, Redis :6380)
 docker compose -f infra/docker/docker-compose.yml up -d
 
-# Run database migrations
+# Align apps/api/.env with .env.example ports, then:
 npm run db:migrate
-
-# Seed development data
 npm run db:seed
-
-# Start API
 npm run dev:api
-
-# Start admin dashboard
 npm run dev:admin
 ```
 
 ## Documentation
 
+- [Staging API](docs/deployment/staging-api.md)
 - [Business Analysis](docs/business/)
 - [System Architecture](docs/architecture/system-design.md)
 - [Database ERD](docs/database/erd.md)

@@ -15,8 +15,10 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @suqya/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @suqya/api",
     "db:generate": "npm run db:generate -w @suqya/api",
     "db:seed": "npm run db:seed -w @suqya/api",
+    "smoke:staging": "bash scripts/smoke-staging.sh",
     "setup:local": "powershell -ExecutionPolicy Bypass -File scripts/local-setup.ps1",
     "render:k8s": "powershell -ExecutionPolicy Bypass -File scripts/render-k8s.ps1"
   },
