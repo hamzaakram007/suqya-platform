@@ -116,7 +116,24 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         fit: StackFit.expand,
         children: [
           Positioned.fill(
-            child: MapsStub(label: l10n.jobRouteMap, height: null),
+            child: SuqyaMap(
+              label: l10n.jobRouteMap,
+              height: null,
+              markers: [
+                SuqyaMapMarker(
+                  id: 'driver',
+                  latitude: MapsConfig.sandboxLat,
+                  longitude: MapsConfig.sandboxLng,
+                  isDriver: true,
+                ),
+                SuqyaMapMarker(
+                  id: 'dest',
+                  latitude: MapsConfig.sandboxLat + 0.012,
+                  longitude: MapsConfig.sandboxLng + 0.008,
+                  isDestination: true,
+                ),
+              ],
+            ),
           ),
           SafeArea(
             child: Padding(

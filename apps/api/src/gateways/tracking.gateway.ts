@@ -4,16 +4,20 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.module';
 import { JwtPayload } from '../common/guards/jwt-auth.guard';
-import { Logger } from '@nestjs/common';
+import { TrackingService } from '../modules/tracking/tracking.service';
 
 @WebSocketGateway({ cors: true, namespace: '/tracking' })
-export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TrackingGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(TrackingGateway.name);
 
   @WebSocketServer()
@@ -23,7 +27,13 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     private jwtService: JwtService,
     private config: ConfigService,
     private prisma: PrismaService,
+    private tracking: TrackingService,
   ) {}
+
+  afterInit(server: Server) {
+    this.tracking.bindServer(server);
+    this.logger.log('Tracking gateway ready (namespace /tracking)');
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -82,6 +92,19 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     if (!allowed) return { error: 'Access denied' };
 
     client.join(`order:${orderId}`);
+
+    // Seed last-known driver point so late subscribers see a marker immediately.
+    if (order.driver?.latitude != null && order.driver?.longitude != null) {
+      client.emit('location_update', {
+        orderId,
+        latitude: order.driver.latitude,
+        longitude: order.driver.longitude,
+        driverId: order.driver.id,
+        source: 'rest',
+        recordedAt: new Date().toISOString(),
+      });
+    }
+
     return { subscribed: orderId };
   }
 
@@ -93,29 +116,42 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     const user = client.data.user as JwtPayload;
     if (!user || user.role !== 'driver') return { error: 'Unauthorized' };
 
+    if (
+      !payload?.orderId ||
+      typeof payload.latitude !== 'number' ||
+      typeof payload.longitude !== 'number'
+    ) {
+      return { error: 'Invalid payload' };
+    }
+
     const driver = await this.prisma.driver.findFirst({
       where: { userId: user.sub },
     });
+    if (!driver) return { error: 'Driver not found' };
 
     const order = await this.prisma.order.findFirst({
-      where: { id: payload.orderId, driverId: driver?.id },
+      where: { id: payload.orderId, driverId: driver.id },
     });
-
     if (!order) return { error: 'Not assigned to this order' };
 
-    await this.prisma.orderTrackingPoint.create({
-      data: {
-        orderId: payload.orderId,
-        latitude: payload.latitude,
-        longitude: payload.longitude,
-      },
+    await this.prisma.driver.update({
+      where: { id: driver.id },
+      data: { latitude: payload.latitude, longitude: payload.longitude },
     });
 
-    this.server.to(`order:${payload.orderId}`).emit('location_update', payload);
-    return { received: true };
+    const published = await this.tracking.publishOrderLocation({
+      orderId: payload.orderId,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      driverId: driver.id,
+      source: 'socket',
+    });
+
+    return { received: true, ...published };
   }
 
+  /** @deprecated Prefer TrackingService.emitOrderUpdate */
   broadcastOrderUpdate(orderId: string, data: Record<string, unknown>) {
-    this.server.to(`order:${orderId}`).emit('order_update', data);
+    this.tracking.emitOrderUpdate(orderId, data);
   }
 }

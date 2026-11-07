@@ -657,7 +657,7 @@ class _MapHero extends StatelessWidget {
         ),
         const Opacity(
           opacity: 0,
-          child: MapsStub(height: 1),
+          child: SuqyaMap(height: 1),
         ),
       ],
     );

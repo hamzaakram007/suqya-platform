@@ -3,6 +3,11 @@
 import { useTranslations } from 'next-intl';
 import { MapShell, Card, CardContent } from '@suqya/ui-kit';
 
+/**
+ * Admin ops map shell.
+ * Full Google Maps JS wiring needs NEXT_PUBLIC_GOOGLE_MAPS_API_KEY + Maps JS loader.
+ * Until then, show sandbox markers (Socket.io /tracking is live on the API for mobile).
+ */
 export function LiveMap({
   className,
   fullBleed = false,
@@ -11,6 +16,8 @@ export function LiveMap({
   fullBleed?: boolean;
 }) {
   const t = useTranslations();
+  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const mode = mapsKey ? 'google' : 'sandbox';
 
   return (
     <MapShell
@@ -27,6 +34,10 @@ export function LiveMap({
               <p className="text-sm font-semibold text-[var(--sq-text)]">{t('live_stream')}</p>
             </div>
             <p className="text-xs text-[var(--sq-text-secondary)]">{t('live_map_desc')}</p>
+            <p className="text-[11px] text-[var(--sq-text-secondary)]">
+              mode={mode} · ws /tracking
+              {!mapsKey ? ' · set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for tiles' : ''}
+            </p>
           </CardContent>
         </Card>
       }
