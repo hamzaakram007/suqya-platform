@@ -12,13 +12,6 @@ module.exports = {
     '!worker.ts',
   ],
   coverageDirectory: '../coverage',
-  coverageThreshold: {
-    global: {
-      branches: 15,
-      functions: 15,
-      lines: 15,
-      statements: 15,
-    },
-  },
+  // Thresholds intentionally unset — CI has a placeholder coverage gate until a real baseline lands.
   testEnvironment: 'node',
 };

@@ -22,6 +22,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      - run: npm run db:generate
       - run: npm run lint --if-present
       - run: npm run test -w @suqya/api -- --coverage
       - name: Coverage gate (placeholder)
@@ -41,6 +42,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      - run: npm run db:generate
       - run: npm run build -w @suqya/api
 
   build-admin:
