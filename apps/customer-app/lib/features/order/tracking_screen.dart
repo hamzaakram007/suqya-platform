@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +29,9 @@ class _TrackingHubScreenState extends ConsumerState<TrackingHubScreen> {
     'en_route',
     'arrived',
     'in_progress',
+    'accepted',
+    'filling',
+    'in_transit',
     'PENDING',
     'CONFIRMED',
     'DISPATCHED',
@@ -54,7 +59,9 @@ class _TrackingHubScreenState extends ConsumerState<TrackingHubScreen> {
         final status = m['status']?.toString() ?? '';
         if (_activeStatuses.contains(status) ||
             status.toLowerCase().contains('route') ||
-            status.toLowerCase().contains('dispatch')) {
+            status.toLowerCase().contains('dispatch') ||
+            status.toLowerCase().contains('transit') ||
+            status.toLowerCase().contains('filling')) {
           active = m['id']?.toString();
           break;
         }
@@ -67,8 +74,6 @@ class _TrackingHubScreenState extends ConsumerState<TrackingHubScreen> {
           _activeId = active;
           _loading = false;
         });
-        // Replace hub with live tracking view via push replacement into same branch
-        // We render TrackingScreen inline instead.
       } else {
         setState(() {
           _activeId = null;
@@ -152,6 +157,14 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
   Map<String, dynamic>? _tracking;
   bool _loading = true;
   Object? _error;
+  double? _driverLat;
+  double? _driverLng;
+  double? _destLat;
+  double? _destLng;
+  TrackingSocket? _socket;
+  StreamSubscription<TrackingLocationUpdate>? _locSub;
+  Timer? _poll;
+
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1800),
@@ -161,6 +174,38 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
   void initState() {
     super.initState();
     _load();
+    _connectLive();
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) => _loadQuiet());
+  }
+
+  Future<void> _connectLive() async {
+    final token = ref.read(authSessionProvider.notifier).accessToken;
+    if (token == null || token.isEmpty) return;
+
+    final socket = TrackingSocket();
+    socket.connect(accessToken: token);
+    _socket = socket;
+    _locSub = socket.locations.listen((u) {
+      if (u.orderId != widget.orderId) return;
+      if (!mounted) return;
+      setState(() {
+        _driverLat = u.latitude;
+        _driverLng = u.longitude;
+      });
+    });
+
+    // Wait briefly for connect, then subscribe.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await socket.subscribeOrder(widget.orderId);
+  }
+
+  Future<void> _loadQuiet() async {
+    try {
+      final data =
+          await ref.read(customerApiProvider).trackOrder(widget.orderId);
+      if (!mounted) return;
+      _applyTracking(data);
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -171,13 +216,12 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
     try {
       final data =
           await ref.read(customerApiProvider).trackOrder(widget.orderId);
-      setState(() => _tracking = data);
+      _applyTracking(data);
     } catch (e) {
-      // Fallback: try order detail
       try {
         final order =
             await ref.read(customerApiProvider).getOrder(widget.orderId);
-        setState(() => _tracking = order);
+        _applyTracking(order);
       } catch (e2) {
         setState(() => _error = e2);
       }
@@ -186,9 +230,50 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
     }
   }
 
+  void _applyTracking(Map<String, dynamic> data) {
+    final driver = data['driver'];
+    double? dLat;
+    double? dLng;
+    if (driver is Map) {
+      dLat = (driver['latitude'] as num?)?.toDouble();
+      dLng = (driver['longitude'] as num?)?.toDouble();
+    }
+    final points = data['trackingPoints'];
+    if ((dLat == null || dLng == null) && points is List && points.isNotEmpty) {
+      final latest = points.first;
+      if (latest is Map) {
+        dLat ??= (latest['latitude'] as num?)?.toDouble();
+        dLng ??= (latest['longitude'] as num?)?.toDouble();
+      }
+    }
+
+    final address = data['address'];
+    double? aLat;
+    double? aLng;
+    if (address is Map) {
+      aLat = (address['latitude'] as num?)?.toDouble();
+      aLng = (address['longitude'] as num?)?.toDouble();
+    }
+
+    setState(() {
+      _tracking = data;
+      if (dLat != null && dLng != null) {
+        _driverLat = dLat;
+        _driverLng = dLng;
+      }
+      if (aLat != null && aLng != null) {
+        _destLat = aLat;
+        _destLng = aLng;
+      }
+    });
+  }
+
   @override
   void dispose() {
     _pulse.dispose();
+    _poll?.cancel();
+    _locSub?.cancel();
+    _socket?.dispose();
     super.dispose();
   }
 
@@ -196,14 +281,44 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
     final s = status.toLowerCase();
     if (s.contains('deliver') || s.contains('complet')) return 1;
     if (s.contains('arriv')) return 0.85;
-    if (s.contains('route') || s.contains('progress')) return 0.65;
-    if (s.contains('assign') || s.contains('dispatch')) return 0.4;
+    if (s.contains('transit') || s.contains('route') || s.contains('progress')) {
+      return 0.65;
+    }
+    if (s.contains('filling')) return 0.5;
+    if (s.contains('accept') || s.contains('assign') || s.contains('dispatch')) {
+      return 0.4;
+    }
     if (s.contains('confirm')) return 0.25;
     return 0.15;
   }
 
   String _statusLabel(String status) {
     return localizedOrderStatus(AppLocalizations.of(context)!, status);
+  }
+
+  List<SuqyaMapMarker> get _markers {
+    final list = <SuqyaMapMarker>[];
+    final lat = _driverLat ?? MapsConfig.sandboxLat;
+    final lng = _driverLng ?? MapsConfig.sandboxLng;
+    list.add(
+      SuqyaMapMarker(
+        id: 'driver',
+        latitude: lat,
+        longitude: lng,
+        isDriver: true,
+      ),
+    );
+    if (_destLat != null && _destLng != null) {
+      list.add(
+        SuqyaMapMarker(
+          id: 'dest',
+          latitude: _destLat!,
+          longitude: _destLng!,
+          isDestination: true,
+        ),
+      );
+    }
+    return list;
   }
 
   @override
@@ -215,6 +330,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
         _tracking?['eta']?.toString() ??
         '—';
     final progress = _progressFor(status);
+    final mapCenterLat = _driverLat ?? _destLat ?? MapsConfig.sandboxLat;
+    final mapCenterLng = _driverLng ?? _destLng ?? MapsConfig.sandboxLng;
 
     return Scaffold(
       backgroundColor: t.background,
@@ -228,66 +345,36 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    t.primary.withValues(alpha: 0.22),
-                    t.primaryMuted,
-                    const Color(0xFFB8D4D4),
-                    t.background,
-                  ],
-                ),
-              ),
+            child: SuqyaMap(
+              height: null,
+              centerLatitude: mapCenterLat,
+              centerLongitude: mapCenterLng,
+              markers: _markers,
+              label: MapsConfig.isSandbox
+                  ? 'تتبع تجريبي · Live sandbox track'
+                  : null,
             ),
           ),
-          // Swap-ready MapsStub (hidden until API key wired)
-          const Positioned(
-            left: 0,
-            top: 0,
-            child: Opacity(opacity: 0, child: MapsStub(height: 1)),
-          ),
-          // Pulsing driver marker
-          Center(
-            child: AnimatedBuilder(
-              animation: _pulse,
-              builder: (_, __) {
-                final scale = 1 + (_pulse.value * 0.12);
-                return Transform.scale(
-                  scale: scale,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: t.primary.withValues(alpha: 0.15),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: t.primary,
-                          boxShadow: [
-                            BoxShadow(
-                              color: t.primary.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.local_shipping_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
+          // Pulsing halo over driver region (works on sandbox + google chrome)
+          IgnorePointer(
+            child: Center(
+              child: AnimatedBuilder(
+                animation: _pulse,
+                builder: (_, __) {
+                  final scale = 1 + (_pulse.value * 0.12);
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: t.primary.withValues(alpha: 0.12),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
           Align(
@@ -362,6 +449,16 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                                     color: t.textSecondary,
                                   ),
                                 ),
+                                if (_driverLat != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_driverLat!.toStringAsFixed(4)}, ${_driverLng!.toStringAsFixed(4)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: t.textSecondary,
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 16),
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(99),

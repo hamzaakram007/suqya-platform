@@ -114,9 +114,18 @@ class _DriverHomeScreenState extends ConsumerState<DriverHomeScreen> {
         fit: StackFit.expand,
         children: [
           Positioned.fill(
-            child: MapsStub(
+            child: SuqyaMap(
               label: l10n.driverMapLabel,
               height: null,
+              markers: [
+                SuqyaMapMarker(
+                  id: 'self',
+                  latitude: MapsConfig.sandboxLat,
+                  longitude: MapsConfig.sandboxLng,
+                  isDriver: true,
+                  label: l10n.driverMapLabel,
+                ),
+              ],
             ),
           ),
 

@@ -133,6 +133,7 @@ export class OrderService {
       include: {
         trackingPoints: { orderBy: { recordedAt: 'desc' }, take: 50 },
         driver: true,
+        address: true,
         statusHistory: { orderBy: { createdAt: 'desc' }, take: 10 },
       },
     });
@@ -147,8 +148,24 @@ export class OrderService {
             longitude: order.driver.longitude,
           }
         : null,
+      address: order.address
+        ? {
+            id: order.address.id,
+            latitude: order.address.latitude,
+            longitude: order.address.longitude,
+            street: order.address.street,
+          }
+        : null,
       trackingPoints: order.trackingPoints,
       statusHistory: order.statusHistory,
+      socket: {
+        namespace: '/tracking',
+        events: {
+          subscribe: 'subscribe_order',
+          location: 'location_update',
+          driverEmit: 'driver_location',
+        },
+      },
     };
   }
 

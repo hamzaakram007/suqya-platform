@@ -24,7 +24,8 @@ import { DispatchService } from '../dispatch/dispatch.service';
 import { OrderStateMachine } from '../order/order-state-machine';
 import { OrderCompletionService } from '../order/order-completion.service';
 import { FraudDetectionService } from '../security/security.service';
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
+import { TrackingService } from '../tracking/tracking.service';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 
@@ -35,6 +36,7 @@ class UpdateStatusDto {
 class UpdateLocationDto {
   @ApiProperty() @IsNumber() latitude!: number;
   @ApiProperty() @IsNumber() longitude!: number;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() orderId?: string;
 }
 
 class JobStatusDto {
@@ -61,6 +63,7 @@ export class DriverController {
     private stateMachine: OrderStateMachine,
     private orderCompletion: OrderCompletionService,
     private fraud: FraudDetectionService,
+    private tracking: TrackingService,
     private config: ConfigService,
     @InjectQueue('dispatch') private dispatchQueue: Queue,
   ) {}
@@ -111,7 +114,16 @@ export class DriverController {
       }),
     ]);
 
-    return { updated: true };
+    // Fan-out live points to customers subscribed on /tracking.
+    const { orderIds } = await this.tracking.publishDriverLocation({
+      driverId: driver.id,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      orderId: dto.orderId,
+      source: 'rest',
+    });
+
+    return { updated: true, broadcastOrderIds: orderIds };
   }
 
   @Post('jobs/:id/accept')

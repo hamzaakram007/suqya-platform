@@ -99,7 +99,7 @@ class _AddressesScreenState extends ConsumerState<AddressesScreen> {
                         ),
                       ),
                     ),
-                    const MapsStub(height: 160),
+                    const SuqyaMap(height: 160),
                   ],
                 ),
               ),

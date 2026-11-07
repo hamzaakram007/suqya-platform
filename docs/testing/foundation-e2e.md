@@ -51,4 +51,4 @@ Unit coverage for the path contract: `npm run test -w @suqya/api` (includes `fou
 - Real card: Moyasar `sk_test_…` / `pk_test_…` + `PAYMENT_MODE=moyasar`
 - ZATCA Fatoora HTTP: `ZATCA_SANDBOX_URL` + `ZATCA_API_TOKEN` (TLV QR already works offline)
 - Push: FCM HTTP sender still not wired beyond sandbox bookkeeping
-- Maps / live tracking intentionally deferred (roadmap step 3)
+- Maps / live tracking: see `docs/testing/maps-tracking.md` (roadmap step 3)

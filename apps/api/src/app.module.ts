@@ -34,7 +34,7 @@ import { SecurityModule } from './modules/security/security.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { ErpModule } from './modules/erp/erp.module';
 import { FaqModule } from './modules/faq/faq.module';
-import { TrackingGateway } from './gateways/tracking.gateway';
+import { TrackingModule } from './modules/tracking/tracking.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LocaleMiddleware } from './common/middleware/locale.middleware';
 import { resolveRedisConnection } from './common/config/redis.config';
@@ -77,11 +77,9 @@ import { SmsModule } from './integrations/sms/sms.module';
     SubscriptionModule,
     ErpModule,
     FaqModule,
+    TrackingModule,
   ],
-  providers: [
-    TrackingGateway,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

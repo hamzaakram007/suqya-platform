@@ -27,10 +27,15 @@ class DriverApi {
     await _dio.patch('/drivers/status', data: {'isOnline': isOnline});
   }
 
-  Future<void> updateLocation(double lat, double lng) async {
+  Future<void> updateLocation(
+    double lat,
+    double lng, {
+    String? orderId,
+  }) async {
     await _dio.post('/drivers/location', data: {
       'latitude': lat,
       'longitude': lng,
+      if (orderId != null && orderId.isNotEmpty) 'orderId': orderId,
     });
   }
 
