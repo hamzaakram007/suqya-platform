@@ -31,12 +31,15 @@ Complete before claiming any surface is “published”:
 | 3 | `VERCEL_TOKEN` or `vercel login` | Set production env on admin + supplier |
 | 4 | Google Play Console (org + app) | Customer + driver Android internal track |
 | 5 | Apple Developer + App Store Connect | TestFlight / App Store |
-| 6 | `GOOGLE_MAPS_API_KEY` (+ Android/iOS restrictions) | Real map tiles; native embeds after `flutter create` |
-| 7 | Moyasar **live** keys (`pk_live_*` / `sk_live_*`) + webhook secret | Real card payments (keep sandbox until pilot pays) |
-| 8 | SMS (`UNIFONIC_APP_SID` or equivalent) + `OTP_MODE=live` | Real OTP (never expose codes in prod) |
-| 9 | Optional: ZATCA prod / Fatoora, FCM, custom domain `api.suqya.sa` | Compliance + push + branded API |
+| 6 | `GOOGLE_MAPS_API_KEY` (+ Android/iOS restrictions) | Real map tiles; Flutter dart-define + Manifest/Info.plist |
+| 7 | Moyasar keys (`pk_*` / `sk_*`) + `MOYASAR_WEBHOOK_SECRET` | Card payments (sandbox test keys OK on staging; live only with `sk_live_*`) |
+| 8 | SMS (`UNIFONIC_APP_SID`) + `OTP_MODE=live` **only if SID present** | Real OTP (never expose codes when live) |
+| 9 | Owner-hosted privacy + support HTTPS URLs | Play / App Store listing requirements |
+| 10 | Optional: ZATCA prod / Fatoora, FCM, custom domain `api.suqya.sa` | Compliance + push + branded API |
 
 Copy names only into dashboards — never commit values.
+
+**Step 5 (Maps / Moyasar / SMS) runbook:** [`vendor-keys-staging.md`](./vendor-keys-staging.md) — staging webhook URL, Railway flips, Flutter dart-defines, privacy hosting.
 
 ---
 
@@ -287,6 +290,8 @@ Sources already in-repo (do not invent legal advice):
 - Privacy policy (Arabic + English) — consent, purpose limitation, processors (Moyasar, Unifonic/SMS, Google Maps, hosting).  
 - Support contact / delete-account path (Google + Apple requirements).  
 - Permission justifications: location (delivery tracking), notifications (order status), camera (POD on driver).
+
+**Hosting status:** repo `store/*/listing.md` still uses `REPLACE_SUPPORT_URL` / privacy placeholders. No Suqya-owned public privacy or support page URL is recorded yet — owner must host pages (Vercel static, Notion public, or custom domain) and paste real HTTPS links before Play/App Store submission. See [`vendor-keys-staging.md`](./vendor-keys-staging.md) § Privacy.
 
 **Production auth expectations** (from auth hardening): fail-fast `JWT_SECRET`; `OTP_EXPOSE_IN_RESPONSE=false`; no OTP codes in logs.
 
