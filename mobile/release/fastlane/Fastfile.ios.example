@@ -1,0 +1,18 @@
+# Example Fastlane for TestFlight.
+# Copy to apps/<app>/ios/fastlane/Fastfile after flutter create (macOS only).
+# Signing: use match or Xcode-managed profiles — do not commit .p8 / .mobileprovision.
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload IPA to TestFlight"
+  lane :beta do
+    ipa = Dir[File.expand_path("../../build/ios/ipa/*.ipa", __dir__)].first
+    UI.user_error!("Missing IPA — run flutter build ipa first") if ipa.nil?
+
+    upload_to_testflight(
+      ipa: ipa,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

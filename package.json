@@ -22,6 +22,7 @@
     "smoke:staging": "bash scripts/smoke-staging.sh",
     "smoke:tracking": "bash scripts/smoke-tracking.sh",
     "e2e:foundation": "bash scripts/e2e-foundation.sh",
+    "mobile:build": "bash scripts/flutter-build-release.sh",
     "setup:local": "powershell -ExecutionPolicy Bypass -File scripts/local-setup.ps1",
     "render:k8s": "powershell -ExecutionPolicy Bypass -File scripts/render-k8s.ps1"
   },

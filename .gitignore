@@ -5,9 +5,11 @@ build/
 .env
 .env.local
 .env.staging
+.env.production
 .env*
 !.env.example
 !.env.staging.example
+!.env.production.example
 *.log
 .DS_Store
 coverage/
@@ -17,6 +19,7 @@ coverage/
 *.p12
 *.key
 *.mobileprovision
+key.properties
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -24,3 +27,8 @@ coverage/
 pubspec.lock
 .vercel
 *.tsbuildinfo
+# Local Flutter dart-defines (keep *.example.json)
+**/dart_defines.staging.json
+**/dart_defines.production.json
+**/dart_defines.local.json
+**/dart_defines.json

@@ -209,14 +209,20 @@ Non-secret config uses ConfigMaps (`suqya-config`): `CORS_ORIGINS`, `ZATCA_ENV`,
 
 ## Mobile App Release
 
-1. Bump version in `pubspec.yaml` (customer + driver)
-2. Update `NEXT_PUBLIC_API_URL` equivalent in Flutter env config
-3. Build release APK/IPA with production API endpoint
-4. Submit to Google Play / App Store with Arabic screenshots
-5. Coordinate release with API deploy (backward-compatible API required)
+Canonical checklist: **[publish-surfaces.md](publish-surfaces.md)** (Play internal + TestFlight, PDPL notes, owner blockers).
+
+1. Ensure native `android/` / `ios/` exist (`flutter create .` — not yet in repo)
+2. Bump `version` in each app `pubspec.yaml` (see `mobile/release/VERSIONING.md`)
+3. Fill `dart_defines.production.json` from the `*.example.json` beside each app
+4. Build: `./scripts/flutter-build-release.sh customer android production` (or `ios` / `apk`)
+5. Upload AAB to Play **internal** track; IPA to TestFlight — not production until pilot exit
+6. Store copy stubs: `store/customer`, `store/driver` (AR + EN)
+7. Coordinate with API deploy (backward-compatible `/v1` required)
 
 ## Related Documentation
 
+- [Publish surfaces](publish-surfaces.md) — production Railway / Vercel / stores
+- [Staging API](staging-api.md) — Railway-first staging
 - [Infrastructure](infrastructure.md) — Terraform, EKS, networking
 - [CI/CD](cicd.md) — GitHub Actions pipeline
 - [Operations Manual](../operations/ops-manual.md) — Day-2 operations

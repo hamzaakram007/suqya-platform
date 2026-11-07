@@ -1,0 +1,24 @@
+# Example Fastlane for Play internal track.
+# Copy to apps/<app>/android/fastlane/Fastfile after flutter create.
+# Requires: fastlane, supply credentials via json_key_file (outside git).
+
+default_platform(:android)
+
+platform :android do
+  desc "Upload AAB to Play internal testing track"
+  lane :internal do
+    # Prefer building via repo script first:
+    #   ../../../../scripts/flutter-build-release.sh customer android production
+    aab = File.expand_path("../../build/app/outputs/bundle/release/app-release.aab", __dir__)
+    UI.user_error!("Missing AAB at #{aab}") unless File.exist?(aab)
+
+    upload_to_play_store(
+      track: "internal",
+      aab: aab,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: "draft"
+    )
+  end
+end

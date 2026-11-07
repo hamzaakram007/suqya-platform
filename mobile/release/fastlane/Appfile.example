@@ -1,0 +1,12 @@
+# Copy to android/fastlane/Appfile or ios/fastlane/Appfile after `flutter create`.
+# Fill with real account values — never commit secrets.
+
+# Android (Play)
+# json_key_file("path/to/play-service-account.json")  # keep outside git
+# package_name("sa.suqya.customer")  # or sa.suqya.driver
+
+# iOS (App Store Connect)
+# app_identifier("sa.suqya.customer")
+# apple_id("owner@example.com")
+# itc_team_id("XXXXXXXXXX")
+# team_id("XXXXXXXXXX")
