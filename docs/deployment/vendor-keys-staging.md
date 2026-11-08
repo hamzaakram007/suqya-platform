@@ -121,17 +121,16 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<browser-restricted key>
 
 ---
 
-## Privacy / support URLs (stores — still owner-hosted)
+## Privacy / support URLs (stores)
 
-Play + App Store listings require **owner-hosted** HTTPS pages. Repo stubs still say `REPLACE_SUPPORT_URL` / privacy placeholders under `store/`.
+Play + App Store listings require public HTTPS pages. Shipped in-repo via **`apps/legal-web`** (Vercel project **`suqya-legal`**):
 
-Host (outside this repo or via a static site you control):
+| Page | Arabic | English |
+|------|--------|---------|
+| Privacy | https://suqya-legal.vercel.app/privacy | https://suqya-legal.vercel.app/en/privacy |
+| Support / account deletion | https://suqya-legal.vercel.app/support | https://suqya-legal.vercel.app/en/support |
 
-1. **Privacy policy** (AR + EN) — PDPL rights, processors (Moyasar, Unifonic/SMS, Google Maps, hosting). See `docs/security/security-policy.md`.  
-2. **Support / contact URL** — human-reachable support.  
-3. **Account deletion** path (Apple/Google) — can point at in-app PDPL delete or a support form.
-
-Until those URLs exist, store upload remains blocked regardless of Maps/Moyasar/SMS.
+Content covers PDPL rights, processors (Moyasar, Unifonic/SMS, Google Maps, hosting), and account-deletion paths. Source: `docs/security/security-policy.md`. Listing files under `store/` already use these URLs. Keep Vercel Auth **disabled** on `suqya-legal`.
 
 ---
 
@@ -142,7 +141,7 @@ Until those URLs exist, store upload remains blocked regardless of Maps/Moyasar/
 3. Set Unifonic → then `OTP_MODE=live` + `OTP_EXPOSE_IN_RESPONSE=false`.  
 4. Set Moyasar keys + webhook URL above → then `PAYMENT_MODE` appropriately.  
 5. Set Maps key in Flutter dart-defines + Android/iOS embeds; rebuild.  
-6. Host privacy + support URLs; paste into `store/*/listing.md`.  
+6. Privacy + support URLs — done via `suqya-legal` (confirm pages still public after redeploy).  
 7. Smoke: OTP to a real `+966` handset; card sandbox/live intent; tracking with Google tiles.
 
 **Do not claim Play / TestFlight apps are live** from this step alone.

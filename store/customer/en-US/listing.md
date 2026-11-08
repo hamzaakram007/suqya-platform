@@ -1,4 +1,4 @@
-# Suqya (Customer) — English store listing stub
+# Suqya (Customer) — English store listing
 
 **Title:** Suqya — Water Tanker Delivery  
 **Short description (≤80):** Order water tankers in Riyadh. Track delivery live. Pay securely.  
@@ -12,10 +12,11 @@ Suqya (سقيا) helps households and businesses order water tanker deliveries i
 - Tax invoices with QR for your records  
 - Manage addresses and order history  
 
-**Support URL:** REPLACE_SUPPORT_URL  
-**Privacy policy URL:** REPLACE_PRIVACY_POLICY_URL  
+**Support URL:** https://suqya-legal.vercel.app/en/support  
+**Privacy policy URL:** https://suqya-legal.vercel.app/en/privacy  
+**Account deletion URL:** https://suqya-legal.vercel.app/en/support  
 **Category:** Utilities / Lifestyle  
-**Contact email:** REPLACE_SUPPORT_EMAIL  
+**Contact email:** support@suqya.sa  
 
 ## Data / permissions (Play Data safety / App Privacy)
 

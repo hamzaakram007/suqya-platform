@@ -19,6 +19,7 @@ apps/
   api/              NestJS backend
   admin-web/        Super admin dashboard
   supplier-web/     Supplier portal
+  legal-web/        Public privacy + support (store listings)
   customer-app/     Flutter customer app
   driver-app/       Flutter driver app
 packages/
@@ -38,6 +39,7 @@ docs/               Business, API, database, UX docs
 |-----|-----|
 | Admin Dashboard | https://admin-web-psi-sepia.vercel.app |
 | Supplier Portal | https://supplier-web-one.vercel.app |
+| Privacy / Support (stores) | https://suqya-legal.vercel.app |
 | GitHub Repo | https://github.com/hamzaakram007/suqya-platform |
 
 ### Redeploy to Vercel
@@ -50,7 +52,12 @@ npx vercel deploy --prod --yes --local-config vercel.admin.json
 # Supplier portal
 npx vercel link --project supplier-web --yes
 npx vercel deploy --prod --yes --local-config vercel.supplier.json
+
+# Public privacy + support (keep Vercel Auth OFF; rootDirectory=apps/legal-web)
+npx vercel link --project suqya-legal --yes
+npx vercel deploy --prod --yes --local-config vercel.legal.json
 ```
+
 
 > **Note:** The NestJS API requires a persistent server (Docker/Kubernetes/Railway). It is not deployed to Vercel. Connect the web apps to your API via `NEXT_PUBLIC_API_URL` in Vercel environment variables.
 

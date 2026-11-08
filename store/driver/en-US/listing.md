@@ -1,4 +1,4 @@
-# Suqya Driver — English store listing stub
+# Suqya Driver — English store listing
 
 **Title:** Suqya Driver  
 **Short description (≤80):** Accept water-tanker jobs, navigate, collect POD, and track earnings.  
@@ -12,10 +12,11 @@ Suqya Driver is for tanker drivers fulfilling Suqya orders.
 - Collect cash when required  
 - View earnings summaries  
 
-**Support URL:** REPLACE_SUPPORT_URL  
-**Privacy policy URL:** REPLACE_PRIVACY_POLICY_URL  
+**Support URL:** https://suqya-legal.vercel.app/en/support  
+**Privacy policy URL:** https://suqya-legal.vercel.app/en/privacy  
+**Account deletion URL:** https://suqya-legal.vercel.app/en/support  
 **Category:** Business / Productivity  
-**Contact email:** REPLACE_SUPPORT_EMAIL  
+**Contact email:** support@suqya.sa  
 
 ## Data / permissions
 
