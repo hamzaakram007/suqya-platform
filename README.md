@@ -53,10 +53,11 @@ npx vercel deploy --prod --yes --local-config vercel.admin.json
 npx vercel link --project supplier-web --yes
 npx vercel deploy --prod --yes --local-config vercel.supplier.json
 
-# Public privacy + support (keep Vercel Auth OFF)
+# Public privacy + support (keep Vercel Auth OFF; rootDirectory=apps/legal-web)
 npx vercel link --project suqya-legal --yes
 npx vercel deploy --prod --yes --local-config vercel.legal.json
 ```
+
 
 > **Note:** The NestJS API requires a persistent server (Docker/Kubernetes/Railway). It is not deployed to Vercel. Connect the web apps to your API via `NEXT_PUBLIC_API_URL` in Vercel environment variables.
 
