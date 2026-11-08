@@ -34,7 +34,7 @@ Complete before claiming any surface is “published”:
 | 6 | `GOOGLE_MAPS_API_KEY` (+ Android/iOS restrictions) | Real map tiles; Flutter dart-define + Manifest/Info.plist |
 | 7 | Moyasar keys (`pk_*` / `sk_*`) + `MOYASAR_WEBHOOK_SECRET` | Card payments (sandbox test keys OK on staging; live only with `sk_live_*`) |
 | 8 | SMS (`UNIFONIC_APP_SID`) + `OTP_MODE=live` **only if SID present** | Real OTP (never expose codes when live) |
-| 9 | Owner-hosted privacy + support HTTPS URLs | Play / App Store listing requirements |
+| 9 | Privacy + support HTTPS (`suqya-legal`) | Done for listing copy — keep project public (no Vercel Auth) |
 | 10 | Optional: ZATCA prod / Fatoora, FCM, custom domain `api.suqya.sa` | Compliance + push + branded API |
 
 Copy names only into dashboards — never commit values.
@@ -348,7 +348,16 @@ Sources already in-repo (do not invent legal advice):
 - Support contact / delete-account path (Google + Apple requirements).  
 - Permission justifications: location (delivery tracking), notifications (order status), camera (POD on driver).
 
-**Hosting status:** repo `store/*/listing.md` still uses `REPLACE_SUPPORT_URL` / privacy placeholders. No Suqya-owned public privacy or support page URL is recorded yet — owner must host pages (Vercel static, Notion public, or custom domain) and paste real HTTPS links before Play/App Store submission. See [`vendor-keys-staging.md`](./vendor-keys-staging.md) § Privacy.
+**Hosting status (2026-11-08):** `apps/legal-web` ships Arabic-first + English privacy/support pages. Listings under [`store/`](../../store/README.md) point at:
+
+| Page | URL |
+|------|-----|
+| Privacy (AR) | https://suqya-legal.vercel.app/privacy |
+| Privacy (EN) | https://suqya-legal.vercel.app/en/privacy |
+| Support / account deletion (AR) | https://suqya-legal.vercel.app/support |
+| Support / account deletion (EN) | https://suqya-legal.vercel.app/en/support |
+
+Vercel project: **`suqya-legal`** — keep **Vercel Authentication / SSO Protection off** so Play/App Store reviewers can open the pages without login. Redeploy: `npx vercel deploy --prod --yes --local-config vercel.legal.json`. See [`vendor-keys-staging.md`](./vendor-keys-staging.md) § Privacy.
 
 **Production auth expectations** (from auth hardening): fail-fast `JWT_SECRET`; `OTP_EXPOSE_IN_RESPONSE=false`; no OTP codes in logs.
 

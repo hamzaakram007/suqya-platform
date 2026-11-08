@@ -11,6 +11,7 @@
     "dev:api": "npm run dev -w @suqya/api",
     "dev:admin": "npm run dev -w @suqya/admin-web",
     "dev:supplier": "npm run dev -w @suqya/supplier-web",
+    "dev:legal": "npm run dev -w @suqya/legal-web",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
